@@ -1,0 +1,30 @@
+[Unit]
+Description=CodeHog — тренажёр Python (maks.my)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/codehog
+EnvironmentFile=/opt/codehog/.env
+ExecStart=/opt/codehog/.venv/bin/uvicorn app.main:приложение --host 127.0.0.1 --port 8791 --workers 2
+Restart=always
+RestartSec=3
+
+# Песочница запускает код учеников, поэтому сервис ужимаем со всех сторон
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/codehog/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LimitNPROC=256
+MemoryMax=700M
+
+[Install]
+WantedBy=multi-user.target

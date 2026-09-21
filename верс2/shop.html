@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Магазин — CodeHog</title>
+<link rel="icon" href="img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="обёртка">
+
+  <header class="шапка">
+    <a class="знак" href="index.html">
+      <svg viewBox="0 0 32 32" width="32" height="32" fill="none" aria-hidden="true">
+        <path d="M9 13 L11.5 4 L14 12.2 Z" fill="#35E0A1"/>
+        <path d="M14.5 12 L17.5 3 L20 11.6 Z" fill="#35E0A1"/>
+        <path d="M20.5 11.6 L24 5.5 L25 12.6 Z" fill="#35E0A1"/>
+        <path d="M4 22.5 C4 16.7 9.2 12 15.6 12 C22 12 27.2 16.4 27.6 21.6 C27.8 24.6 25.6 27 22.4 27 L8.4 27 C5.9 27 4 25 4 22.5 Z" fill="#35E0A1"/>
+        <path d="M9 22.5 H15 L18 19.5 H23" stroke="#101619" stroke-width="2" stroke-linecap="square"/>
+        <rect x="21" y="17.5" width="4" height="4" fill="#101619"/>
+      </svg>
+      <span class="знак__текст">CodeHog</span>
+    </a>
+    <div class="шапка__право">
+      <span class="баланс"><span class="баланс__знак"></span><span id="баланс">1 240</span></span>
+      <a class="вход" href="index.html">Курс</a>
+    </div>
+  </header>
+
+  <section class="магазин">
+    <!-- примерка: персонаж слева, липкая при прокрутке каталога -->
+    <div class="примерка">
+      <div class="примерка__окно">
+        <div class="примерка__платформа"></div>
+        <img class="примерка__герой" id="герой" src="img/hog-base.png" alt="Кибер-ёж">
+        <video class="примерка__видео" id="герой-видео" muted loop playsinline></video>
+      </div>
+      <div class="примерка__низ">
+        <span class="примерка__имя" id="имя-примерки">Базовый вид</span>
+        <span class="примерка__метка" id="метка-примерки">ПРИМЕРКА</span>
+      </div>
+    </div>
+
+    <div class="каталог" id="каталог"></div>
+  </section>
+
+</div>
+
+<script>
+// Каталог: цены и слоты те же, что в базе приложения.
+const ТОВАРЫ = [
+  {sku:"cap",         слот:"Голова",    имя:"Неоновая кепка",       цена:40,   вид:"img/hog-cap.png",      текст:"Кепка с символом приглашения командной строки"},
+  {sku:"glasses",     слот:"Лицо",      имя:"Очки отладки",         цена:120,  вид:"img/hog-glasses.png",  текст:"Подсвеченные линзы — видно каждую ошибку"},
+  {sku:"hoodie",      слот:"Одежда",    имя:"Худи Python",          цена:250,  вид:"img/hog-base.png",     текст:"Пиксельный питон на груди"},
+  {sku:"backpack",    слот:"Спина",     имя:"Рюкзак разработчика",  цена:400,  вид:"img/hog-backpack.png", текст:"Торчащие кабели и запасной аккумулятор"},
+  {sku:"skin_neon",   слот:"Скин",      имя:"Неоновые иглы",        цена:650,  вид:"img/hog-neon.png",     видео:"vid/neon.mp4",    текст:"Бирюзовые иглы с мягким свечением"},
+  {sku:"skin_chrome", слот:"Скин",      имя:"Хромированный ёж",     цена:1100, вид:"img/hog-chrome.png",   видео:"vid/chrome.mp4",  текст:"Металлическая текстура тела"},
+  {sku:"hogmobile",   слот:"Транспорт", имя:"Хог-мобиль",           цена:1800, вид:"img/hog-car.png",      видео:"vid/car.mp4",     текст:"Личный транспорт кибер-ежа"},
+  {sku:"capsule",     слот:"Дом",       имя:"Капсула кодера",       цена:4500, вид:"img/hog-capsule.png",  видео:"vid/capsule.mp4", текст:"Комната с рабочим столом на фоне"},
+  {sku:"loft",        слот:"Дом",       имя:"Кибер-лофт",           цена:8000, вид:"img/hog-loft.png",     видео:"vid/loft.mp4",    текст:"Панорама города и серверная стойка"},
+];
+
+const БАЛАНС = 1240;
+const герой = document.getElementById("герой");
+const видео = document.getElementById("герой-видео");
+const имяПримерки = document.getElementById("имя-примерки");
+const меткаПримерки = document.getElementById("метка-примерки");
+const каталог = document.getElementById("каталог");
+
+function примерить(товар) {
+  меткаПримерки.textContent = "ПРИМЕРКА";
+  имяПримерки.textContent = товар ? товар.имя : "Базовый вид";
+  if (товар && товар.видео) {
+    // у части вещей есть зацикленная анимация — показываем её
+    видео.src = товар.видео;
+    видео.style.display = "block";
+    герой.style.display = "none";
+    видео.play().catch(() => {});
+  } else {
+    видео.pause();
+    видео.style.display = "none";
+    герой.style.display = "block";
+    герой.src = товар ? товар.вид : "img/hog-base.png";
+  }
+}
+
+ТОВАРЫ.forEach((товар) => {
+  const карточка = document.createElement("article");
+  карточка.className = "товар";
+  карточка.dataset.надето = "нет";
+  const хватает = БАЛАНС >= товар.цена;
+  карточка.innerHTML = `
+    <img class="товар__картинка" src="img/предметы/${товар.sku}.png" alt="${товар.имя}" loading="lazy">
+    <span class="товар__слот">${товар.слот.toUpperCase()}</span>
+    <h2 class="товар__имя">${товар.имя}</h2>
+    <p class="товар__текст">${товар.текст}</p>
+    <div class="товар__низ">
+      <span class="цена"><span class="цена__знак"></span>${товар.цена.toLocaleString("ru")}</span>
+      <button class="кнопка-товара" ${хватает ? "" : "disabled"}>
+        ${хватает ? "Купить" : "Не хватает"}
+      </button>
+    </div>`;
+  карточка.querySelector(".товар__картинка").onclick = () => примерить(товар);
+  каталог.appendChild(карточка);
+});
+</script>
+</body>
+</html>

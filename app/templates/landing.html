@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block содержимое %}
+<section class="герой">
+  <div>
+    <h1>{{ т['герой.заголовок1'] }}<br>{{ т['герой.заголовок2'] }} <em>{{ т['герой.акцент'] }}</em>.</h1>
+    <p class="подзаголовок">{{ т['герой.подзаголовок'] }}</p>
+    <a class="кнопка большая" href="/test">{{ т['герой.кнопка'] }}</a>
+    <div class="под-кнопкой">{{ т['герой.подкнопкой'] }}</div>
+  </div>
+
+  {# Три ступени прокачки. На десктопе видны все, на мобильном — по очереди. #}
+  <div class="витрина" id="витрина">
+    {% for ключ, подпись, примечание in [
+        ('novice', т['ступень.новичок'], т['ступень.старт']),
+        ('trend',  т['ступень.тренд'],   т['ступень.иглы']),
+        ('lux',    т['ступень.люкс'],    т['ступень.тачка'])] %}
+      <figure class="ступень {% if loop.first %}активна{% endif %}" data-шаг="{{ loop.index0 }}">
+        <video class="скин" autoplay muted loop playsinline preload="metadata"
+               poster="/static/img/hog-{{ 'base' if ключ == 'novice' else ('neon' if ключ == 'trend' else 'car') }}.png">
+          <source src="/static/img/vid-{{ ключ }}.mp4" type="video/mp4">
+        </video>
+        <figcaption>
+          <b>{{ подпись }}</b>
+          <span class="тише">{{ примечание }}</span>
+        </figcaption>
+      </figure>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="шаги">
+  <div class="шаг"><b>1.</b> {{ т['шаг.тест'] }}</div>
+  <div class="шаг">→</div>
+  <div class="шаг"><b>2.</b> {{ т['шаг.курс'] }}</div>
+  <div class="шаг">→</div>
+  <div class="шаг"><b>3.</b> {{ т['шаг.практика'] }}</div>
+</div>
+
+<section class="сетка три" style="padding-bottom:56px">
+  <div class="карта">
+    <h3 style="margin-top:0">{{ т['блок.курс.титул'] }}</h3>
+    <p class="тише">{{ т['блок.курс.текст'] }}</p>
+  </div>
+  <div class="карта">
+    <h3 style="margin-top:0">{{ т['блок.код.титул'] }}</h3>
+    <p class="тише">{{ т['блок.код.текст'] }}</p>
+  </div>
+  <div class="карта">
+    <h3 style="margin-top:0">{{ т['блок.монеты.титул'] }}</h3>
+    <p class="тише">{{ т['блок.монеты.текст'] }}</p>
+  </div>
+</section>
+{% endblock %}
+{% block скрипты %}<script src="/static/js/landing.js"></script>{% endblock %}

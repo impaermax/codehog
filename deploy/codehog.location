@@ -1,0 +1,20 @@
+# CodeHog на главной maks.my. Всё остальное (kedr, idealsteklo, diving, /api/ платформы)
+# продолжает работать: у nginx выигрывает самый длинный совпавший префикс,
+# а этот блок ловит только то, что не разобрали остальные.
+location / {
+  proxy_pass http://127.0.0.1:8791;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_read_timeout 120s;
+}
+
+# статика приложения отдаётся с диска, минуя питон
+location /static/ {
+  alias /opt/codehog/app/static/;
+  expires 7d;
+  add_header Cache-Control "public";
+  access_log off;
+}

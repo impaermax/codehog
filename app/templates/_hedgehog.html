@@ -1,0 +1,95 @@
+{# Кибер-ёж послойно. Слои включаются тем, что надето: надето.head, надето.body и т.д. #}
+{% macro ёж(надето={}, размер=260) %}
+<svg viewBox="0 0 240 240" width="{{ размер }}" height="{{ размер }}" class="ёж" aria-label="Кибер-ёж">
+  <defs>
+    <linearGradient id="иглы" x1="0" y1="0" x2="0" y2="1">
+      {% if надето.get('skin') == 'skin_chrome' %}
+        <stop offset="0%" stop-color="#dfe8f5"/><stop offset="100%" stop-color="#8b9bb4"/>
+      {% elif надето.get('skin') == 'skin_neon' %}
+        <stop offset="0%" stop-color="#4ff5c0"/><stop offset="100%" stop-color="#17a6a0"/>
+      {% else %}
+        <stop offset="0%" stop-color="#5b7bd5"/><stop offset="100%" stop-color="#33488c"/>
+      {% endif %}
+    </linearGradient>
+    <radialGradient id="свечение" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#35e0a1" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#35e0a1" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  {% if надето.get('home') %}
+    <rect x="0" y="0" width="240" height="240" rx="24"
+          fill="{{ '#1a2740' if надето.home == 'capsule' else '#241a3d' }}"/>
+    <rect x="18" y="150" width="204" height="8" rx="4" fill="#35415c"/>
+    {% if надето.home == 'loft' %}
+      {% for x in range(20, 220, 26) %}
+        <rect x="{{ x }}" y="{{ 40 + (x % 3) * 10 }}" width="14" height="70" rx="3"
+              fill="#2c3a58" opacity=".9"/>
+      {% endfor %}
+    {% else %}
+      <rect x="150" y="96" width="56" height="40" rx="6" fill="#2c3a58"/>
+      <rect x="158" y="104" width="40" height="24" rx="3" fill="#35e0a1" opacity=".5"/>
+    {% endif %}
+  {% endif %}
+
+  {% if надето.get('skin') == 'skin_neon' %}
+    <circle cx="120" cy="128" r="86" fill="url(#свечение)"/>
+  {% endif %}
+
+  {% if надето.get('vehicle') %}
+    <g>
+      <rect x="34" y="168" width="172" height="30" rx="14" fill="#26344d"/>
+      <rect x="60" y="152" width="92" height="26" rx="10" fill="#35e0a1" opacity=".85"/>
+      <circle cx="72" cy="200" r="13" fill="#0f1720" stroke="#4a5d7d" stroke-width="3"/>
+      <circle cx="172" cy="200" r="13" fill="#0f1720" stroke="#4a5d7d" stroke-width="3"/>
+    </g>
+  {% endif %}
+
+  {# иглы #}
+  <g>
+    {% for угол in range(-70, 71, 20) %}
+      <polygon points="120,58 {{ 120 + угол * 0.85 }},22 {{ 128 + угол * 0.85 }},60"
+               fill="url(#иглы)" opacity=".95"/>
+    {% endfor %}
+  </g>
+
+  {% if надето.get('back') %}
+    <rect x="150" y="96" width="34" height="48" rx="10" fill="#3d4d6b"/>
+    <rect x="158" y="106" width="18" height="6" rx="3" fill="#35e0a1"/>
+    <path d="M176 100 q18 -12 10 -28" stroke="#ff9d5c" stroke-width="3" fill="none"/>
+  {% endif %}
+
+  {# тело #}
+  <ellipse cx="120" cy="132" rx="62" ry="54" fill="url(#иглы)"/>
+  <ellipse cx="120" cy="140" rx="44" ry="40" fill="#f3d9b8"/>
+
+  {% if надето.get('body') %}
+    <path d="M78 138 a44 40 0 0 0 84 0 v22 a44 40 0 0 1 -84 0 z" fill="#2f6f4a"/>
+    <rect x="106" y="146" width="28" height="10" rx="5" fill="#f2d54e"/>
+  {% endif %}
+
+  {# морда #}
+  <circle cx="103" cy="126" r="6" fill="#101820"/>
+  <circle cx="137" cy="126" r="6" fill="#101820"/>
+  <circle cx="105" cy="124" r="2" fill="#fff"/>
+  <circle cx="139" cy="124" r="2" fill="#fff"/>
+  <ellipse cx="120" cy="146" rx="8" ry="6" fill="#2b2118"/>
+
+  {% if надето.get('face') %}
+    <g>
+      <rect x="90" y="116" width="26" height="18" rx="6" fill="#0d1420" stroke="#35e0a1" stroke-width="2"/>
+      <rect x="124" y="116" width="26" height="18" rx="6" fill="#0d1420" stroke="#35e0a1" stroke-width="2"/>
+      <line x1="116" y1="124" x2="124" y2="124" stroke="#35e0a1" stroke-width="2"/>
+    </g>
+  {% endif %}
+
+  {% if надето.get('head') %}
+    <g>
+      <path d="M78 84 a42 30 0 0 1 84 0 z" fill="#1f2c44"/>
+      <rect x="76" y="82" width="88" height="9" rx="4" fill="#35e0a1"/>
+      <text x="120" y="76" font-family="ui-monospace, monospace" font-size="15"
+            fill="#35e0a1" text-anchor="middle">&gt;_</text>
+    </g>
+  {% endif %}
+</svg>
+{% endmacro %}

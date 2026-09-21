@@ -1,0 +1,229 @@
+/* CodeHog — тёмная кибер-тема. Один акцент, крупная типографика, никакой каши. */
+
+:root {
+  --фон: #0b0f16;
+  --фон-карта: #131a25;
+  --фон-выше: #1b2431;
+  --штрих: #263143;
+  --текст: #e8eef7;
+  --текст-тише: #93a3ba;
+  --акцент: #35e0a1;
+  --акцент-тень: rgba(53, 224, 161, .25);
+  --вторичный: #7c8cff;
+  --опасно: #ff6b6b;
+  --золото: #ffc94d;
+  --радиус: 16px;
+  --шрифт: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --моно: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--шрифт);
+  background: var(--фон);
+  color: var(--текст);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--акцент); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.обёртка { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+.узкая { max-width: 560px; }
+
+/* --- шапка --- */
+.шапка {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 0; border-bottom: 1px solid var(--штрих);
+}
+.логотип { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; color: var(--текст); }
+.логотип:hover { text-decoration: none; }
+.логотип span { color: var(--акцент); }
+
+.метрики { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.метрика {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--фон-карта); border: 1px solid var(--штрих);
+  padding: 6px 12px; border-radius: 999px; font-size: 14px; font-weight: 600;
+}
+.метрика.монеты { color: var(--золото); }
+.метрика.огонь { color: #ff9d5c; }
+
+/* --- кнопки --- */
+.кнопка {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 26px; border-radius: 12px; border: none; cursor: pointer;
+  font-family: inherit; font-size: 16px; font-weight: 700;
+  background: var(--акцент); color: #04120c;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow: 0 6px 20px var(--акцент-тень);
+}
+.кнопка:hover { transform: translateY(-2px); box-shadow: 0 10px 28px var(--акцент-тень); text-decoration: none; }
+.кнопка:active { transform: translateY(0); }
+.кнопка:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+.кнопка.большая { padding: 18px 40px; font-size: 19px; border-radius: 14px; }
+.кнопка.тихая { background: var(--фон-выше); color: var(--текст); box-shadow: none; border: 1px solid var(--штрих); }
+.кнопка.тихая:hover { background: var(--штрих); }
+
+/* --- первый экран --- */
+.герой { padding: 64px 0 40px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; }
+.герой h1 { font-size: clamp(34px, 5vw, 54px); line-height: 1.08; margin: 0 0 18px; letter-spacing: -.02em; }
+.герой h1 em { font-style: normal; color: var(--акцент); }
+.герой p.подзаголовок { font-size: 19px; color: var(--текст-тише); margin: 0 0 30px; max-width: 46ch; }
+.под-кнопкой { margin-top: 14px; color: var(--текст-тише); font-size: 14px; }
+.сцена {
+  background: radial-gradient(circle at 50% 35%, #1d2b3d 0%, var(--фон-карта) 70%);
+  border: 1px solid var(--штрих); border-radius: 24px; padding: 24px;
+  display: flex; align-items: center; justify-content: center; min-height: 340px;
+}
+.шаги { display: flex; gap: 12px; flex-wrap: wrap; padding: 8px 0 56px; color: var(--текст-тише); font-size: 15px; }
+.шаг { display: flex; align-items: center; gap: 8px; }
+.шаг b { color: var(--текст); }
+
+
+/* --- витрина скинов на первом экране --- */
+.витрина { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ступень {
+  margin: 0; border-radius: 20px; overflow: hidden; position: relative;
+  background: radial-gradient(circle at 50% 30%, #1d2b3d 0%, var(--фон-карта) 72%);
+  border: 1px solid var(--штрих); transition: transform .18s ease, border-color .18s ease;
+}
+.ступень:hover { transform: translateY(-4px); border-color: var(--акцент); }
+.ступень video.скин { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.ступень figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 14px;
+  background: linear-gradient(transparent, rgba(8,11,17,.92) 55%);
+  display: flex; flex-direction: column; gap: 2px; font-size: 14px;
+}
+.ступень figcaption b { font-size: 15px; }
+.точки { display: none; gap: 8px; justify-content: center; margin-top: 14px; }
+.точки i { width: 8px; height: 8px; border-radius: 50%; background: var(--штрих); display: block; }
+.точки i.активна { background: var(--акцент); }
+
+@media (max-width: 860px) {
+  .витрина { grid-template-columns: 1fr; }
+  .ступень { display: none; }
+  .ступень.активна { display: block; }
+  .точки { display: flex; }
+}
+
+/* --- карточки --- */
+.карта {
+  background: var(--фон-карта); border: 1px solid var(--штрих);
+  border-radius: var(--радиус); padding: 22px;
+}
+.сетка { display: grid; gap: 16px; }
+.сетка.две { grid-template-columns: repeat(2, 1fr); }
+.сетка.три { grid-template-columns: repeat(3, 1fr); }
+
+/* --- тест --- */
+.вопрос-код {
+  font-family: var(--моно); font-size: 15px; background: #0a0e15;
+  border: 1px solid var(--штрих); border-radius: 12px; padding: 16px;
+  white-space: pre; overflow-x: auto; margin: 14px 0 18px; color: #cfe3ff;
+}
+.варианты { display: grid; gap: 10px; }
+.вариант {
+  text-align: left; padding: 14px 18px; border-radius: 12px; cursor: pointer;
+  background: var(--фон-выше); border: 1px solid var(--штрих); color: var(--текст);
+  font-family: var(--моно); font-size: 15px; transition: border-color .12s, background .12s;
+}
+.вариант:hover { border-color: var(--акцент); }
+.вариант.выбран { border-color: var(--акцент); background: rgba(53, 224, 161, .1); }
+.вариант.верно { border-color: var(--акцент); background: rgba(53, 224, 161, .16); }
+.вариант.неверно { border-color: var(--опасно); background: rgba(255, 107, 107, .12); }
+
+.полоса { height: 6px; background: var(--фон-выше); border-radius: 99px; overflow: hidden; margin: 18px 0 26px; }
+.полоса i { display: block; height: 100%; background: var(--акцент); transition: width .3s ease; }
+
+/* --- карта курса --- */
+.модуль { margin-bottom: 26px; }
+.модуль h3 { margin: 0 0 4px; font-size: 18px; }
+.модуль p { margin: 0 0 14px; color: var(--текст-тише); font-size: 14px; }
+.уроки { display: flex; gap: 12px; flex-wrap: wrap; }
+.урок {
+  width: 92px; height: 92px; border-radius: 20px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px; text-align: center;
+  background: var(--фон-выше); border: 1px solid var(--штрих); color: var(--текст-тише);
+  font-size: 12px; padding: 8px; transition: transform .12s, border-color .12s;
+}
+.урок:hover { transform: translateY(-3px); border-color: var(--акцент); text-decoration: none; }
+.урок b { font-size: 20px; color: var(--текст); }
+.урок.готов { background: rgba(53, 224, 161, .12); border-color: var(--акцент); color: var(--акцент); }
+.урок.готов b { color: var(--акцент); }
+
+/* --- урок --- */
+.теория { line-height: 1.7; }
+.теория code { font-family: var(--моно); background: #0a0e15; padding: 2px 6px; border-radius: 6px; }
+.редактор {
+  width: 100%; min-height: 220px; font-family: var(--моно); font-size: 15px;
+  background: #0a0e15; color: #cfe3ff; border: 1px solid var(--штрих);
+  border-radius: 12px; padding: 16px; resize: vertical; line-height: 1.6;
+}
+.редактор:focus { outline: none; border-color: var(--акцент); }
+.консоль {
+  font-family: var(--моно); font-size: 14px; background: #080b11; border: 1px solid var(--штрих);
+  border-radius: 12px; padding: 14px; white-space: pre-wrap; color: var(--текст-тише);
+  max-height: 240px; overflow-y: auto;
+}
+.консоль .ок { color: var(--акцент); }
+.консоль .плохо { color: var(--опасно); }
+
+/* --- колесо --- */
+.колесо-обёртка { position: relative; width: 260px; height: 260px; margin: 0 auto; }
+.колесо { width: 100%; height: 100%; transition: transform 4s cubic-bezier(.17,.67,.2,1); }
+.стрелка {
+  position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent;
+  border-top: 22px solid var(--акцент); z-index: 2;
+}
+
+/* --- магазин --- */
+.товар { display: flex; flex-direction: column; gap: 10px; }
+.товар .цена { color: var(--золото); font-weight: 700; }
+.товар.куплено { border-color: var(--акцент); }
+.бейдж {
+  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  background: var(--фон-выше); color: var(--текст-тише); align-self: flex-start;
+}
+
+/* --- формы --- */
+label { display: block; font-size: 14px; color: var(--текст-тише); margin-bottom: 6px; }
+input[type=text], input[type=email], input[type=password] {
+  width: 100%; padding: 13px 15px; border-radius: 11px; font-size: 15px; font-family: inherit;
+  background: var(--фон-выше); border: 1px solid var(--штрих); color: var(--текст); margin-bottom: 16px;
+}
+input:focus { outline: none; border-color: var(--акцент); }
+.ошибка { background: rgba(255,107,107,.12); border: 1px solid var(--опасно); color: #ffc9c9;
+  padding: 12px 15px; border-radius: 11px; margin-bottom: 16px; font-size: 14px; }
+.успех { background: rgba(53,224,161,.12); border: 1px solid var(--акцент); color: var(--акцент);
+  padding: 12px 15px; border-radius: 11px; margin-bottom: 16px; font-size: 14px; }
+
+/* --- всплывающая награда --- */
+.награда {
+  position: fixed; inset: 0; background: rgba(6,9,14,.86); display: none;
+  align-items: center; justify-content: center; z-index: 50; padding: 20px;
+}
+.награда.видно { display: flex; }
+.награда .окно { background: var(--фон-карта); border: 1px solid var(--акцент);
+  border-radius: 22px; padding: 34px; text-align: center; max-width: 420px; width: 100%; }
+
+.тише { color: var(--текст-тише); font-size: 14px; }
+.центр { text-align: center; }
+
+@media (max-width: 860px) {
+  .герой { grid-template-columns: 1fr; gap: 28px; padding-top: 34px; }
+  .сетка.две, .сетка.три { grid-template-columns: 1fr; }
+  .сцена { min-height: 260px; }
+}
+
+/* --- переключатель языка --- */
+.языки { display: inline-flex; gap: 2px; background: var(--фон-карта);
+  border: 1px solid var(--штрих); border-radius: 999px; padding: 3px; }
+.языки a { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  color: var(--текст-тише); letter-spacing: .03em; }
+.языки a:hover { color: var(--текст); text-decoration: none; }
+.языки a.выбран { background: var(--акцент); color: #04120c; }

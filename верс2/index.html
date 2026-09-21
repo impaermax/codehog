@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeHog — Python в игре</title>
+<link rel="icon" href="img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .только-узкий { display: none; }
+  @media (max-width: 1024px) {
+    .только-широкий { display: none; }
+    .только-узкий { display: inline; }
+  }
+</style>
+</head>
+<body>
+<div class="обёртка">
+
+  <header class="шапка">
+    <a class="знак" href="/">
+      <svg viewBox="0 0 32 32" width="32" height="32" fill="none" aria-hidden="true">
+        <path d="M9 13 L11.5 4 L14 12.2 Z" fill="#35E0A1"/>
+        <path d="M14.5 12 L17.5 3 L20 11.6 Z" fill="#35E0A1"/>
+        <path d="M20.5 11.6 L24 5.5 L25 12.6 Z" fill="#35E0A1"/>
+        <path d="M4 22.5 C4 16.7 9.2 12 15.6 12 C22 12 27.2 16.4 27.6 21.6 C27.8 24.6 25.6 27 22.4 27 L8.4 27 C5.9 27 4 25 4 22.5 Z" fill="#35E0A1"/>
+        <path d="M9 22.5 H15 L18 19.5 H23" stroke="#101619" stroke-width="2" stroke-linecap="square"/>
+        <rect x="21" y="17.5" width="4" height="4" fill="#101619"/>
+      </svg>
+      <span class="знак__текст">CodeHog</span>
+    </a>
+    <div class="шапка__право">
+      <nav class="языки" aria-label="Язык">
+        <a href="/lang/ru" class="выбран">РУС</a>
+        <a href="/lang/en">ENG</a>
+        <a href="/lang/ce">НОХЧ</a>
+      </nav>
+      <a class="вход" href="/login">Войти</a>
+    </div>
+  </header>
+
+  <section class="герой">
+    <div>
+      <h1 class="титул">
+        <span class="титул__строка">Освой Python.</span>
+        <span class="титул__строка">Прокачай</span>
+        <span class="титул__строка титул__объект">кибер&#8209;ежа.</span>
+      </h1>
+      <p class="подзаголовок">Запускай код, получай монеты<br>и прокачивай своего ежа.</p>
+
+      <a class="действие" href="/test">
+        Пройти тест
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <div class="под-действием">Без регистрации · 5–8 минут</div>
+
+      <div class="связка">Тест → <b>курс под твой уровень</b></div>
+    </div>
+
+    <div>
+      <div class="сцена">
+        <div class="сцена__метка"><span class="только-широкий">ТВОЙ ПРОГРЕСС ВИДНО</span><span class="только-узкий">ТВОЙ ЁЖ</span></div>
+        <div class="сцена__платформа"></div>
+        <img class="сцена__герой" id="герой" src="img/hog-base.png" alt="Кибер-ёж в базовом состоянии">
+        <div class="плашка">
+          <div class="плашка__шапка">Пример выполнения</div>
+          <div class="плашка__код"><span class="fn">print</span>(<span class="num">2</span> + <span class="num">3</span>) <span class="res">→ 5</span></div>
+        </div>
+      </div>
+
+      <div class="ступени" role="tablist" aria-label="Состояния персонажа">
+        <button class="ступень" role="tab" aria-selected="true" data-src="img/hog-base.png">
+          <span class="ступень__номер">01 / База</span>
+          <span class="ступень__имя">Начальное состояние</span>
+        </button>
+        <button class="ступень" role="tab" aria-selected="false" data-src="img/hog-neon.png">
+          <span class="ступень__номер">02 / Неон</span>
+          <span class="ступень__имя">Следующая ступень</span>
+        </button>
+        <button class="ступень" role="tab" aria-selected="false" data-src="img/hog-car.png">
+          <span class="ступень__номер">03 / Хог&#8209;мобиль</span>
+          <span class="ступень__имя">Дальняя цель</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="маршрут">
+    <div class="узел">
+      <span class="узел__номер">01</span>
+      <div>
+        <h2 class="узел__титул">Определи уровень</h2>
+        <p class="узел__текст">Тест на 5–8 минут без регистрации.</p>
+        <div class="узел__символ">○ ● ○</div>
+      </div>
+    </div>
+    <div class="узел">
+      <span class="узел__номер">02</span>
+      <div>
+        <h2 class="узел__титул">Получи свой маршрут</h2>
+        <p class="узел__текст">Курс собирается по результатам теста.</p>
+        <div class="узел__символ">──○──○──○</div>
+      </div>
+    </div>
+    <div class="узел">
+      <span class="узел__номер">03</span>
+      <div>
+        <h2 class="узел__титул">Запускай и прокачивай</h2>
+        <p class="узел__текст">Задачи → монеты → экипировка.</p>
+        <div class="узел__символ">&gt;_ → <span class="монета">◉</span> → ▲</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script>
+  // Переключение состояний: меняется только персонаж, автопереключения нет.
+  const герой = document.getElementById('герой');
+  document.querySelectorAll('.ступень').forEach((вкладка) => {
+    вкладка.addEventListener('click', () => {
+      document.querySelectorAll('.ступень').forEach(в => в.setAttribute('aria-selected', 'false'));
+      вкладка.setAttribute('aria-selected', 'true');
+      герой.style.opacity = '0';
+      setTimeout(() => { герой.src = вкладка.dataset.src; герой.style.opacity = '1'; }, 90);
+    });
+  });
+  герой.style.transition = 'opacity 180ms ease-out';
+</script>
+</body>
+</html>

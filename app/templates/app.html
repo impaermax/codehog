@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "_hedgehog.html" import ёж %}
+{% block заголовок %}Мой курс — CodeHog{% endblock %}
+{% block содержимое %}
+<section class="сетка две" style="padding:32px 0; align-items:start">
+  <div class="карта">
+    <h2 style="margin-top:0">{{ курс.title }}</h2>
+    <p class="тише">{{ курс.summary }}</p>
+    <div class="полоса"><i style="width:{{ курс.прогресс }}%"></i></div>
+    <div class="тише">Пройдено {{ курс.прогресс }}% · ранг {{ user.ранг }}</div>
+  </div>
+
+  <div class="карта центр">
+    {{ ёж(надето, 200) }}
+    <div style="margin-top:10px">
+      <b>{{ user.username }}</b>
+      <div class="тише">🔥 серия {{ user.streak_current }} дн. · рекорд {{ user.streak_best }}</div>
+    </div>
+    <div style="margin-top:14px; display:flex; gap:10px; justify-content:center">
+      <a class="кнопка тихая" href="/shop">Магазин</a>
+      <button class="кнопка" id="открыть-колесо" {% if not вращений %}disabled{% endif %}>
+        Колесо{% if вращений %} ({{ вращений }}){% endif %}
+      </button>
+    </div>
+  </div>
+</section>
+
+<section>
+  {% for модуль in курс.modules %}
+    <div class="модуль">
+      <h3>{{ loop.index }}. {{ модуль.title }}</h3>
+      <p>{{ модуль.description }}</p>
+      <div class="уроки">
+        {% for урок in модуль.lessons %}
+          <a class="урок {% if урок.is_completed %}готов{% endif %}" href="/lesson/{{ урок.id }}">
+            <b>{% if урок.is_completed %}✓{% else %}{{ loop.index }}{% endif %}</b>
+            <span>{{ урок.title }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</section>
+
+<div class="награда" id="окно-колеса">
+  <div class="окно">
+    <h2 style="margin-top:0">Колесо удачи</h2>
+    <div class="колесо-обёртка">
+      <div class="стрелка"></div>
+      <svg class="колесо" id="колесо" viewBox="0 0 200 200">
+        {% set цвета = ['#35e0a1', '#7c8cff', '#ffc94d', '#ff9d5c', '#ff6b6b'] %}
+        {% set всего = сектора | sum(attribute=1) %}
+        <circle cx="100" cy="100" r="96" fill="#1b2431" stroke="#263143" stroke-width="2"/>
+        {% set ns = namespace(угол=-90) %}
+        {% for монеты, вес in сектора %}
+          {% set доля = вес * 360 / всего %}
+          {# сектор рисуем толстой дугой: длина штриха пропорциональна вероятности #}
+          <circle cx="100" cy="100" r="74" fill="none" stroke="{{ цвета[loop.index0] }}"
+                  stroke-width="44" opacity=".85"
+                  stroke-dasharray="{{ (доля / 360 * 465) | round(2) }} 465"
+                  transform="rotate({{ ns.угол }} 100 100)"/>
+          <g transform="rotate({{ ns.угол + доля / 2 }} 100 100)">
+            <text x="100" y="34" text-anchor="middle" font-size="15" font-weight="800"
+                  fill="#0b0f16">{{ монеты }}</text>
+          </g>
+          {% set ns.угол = ns.угол + доля %}
+        {% endfor %}
+        <circle cx="100" cy="100" r="26" fill="#131a25" stroke="#35e0a1" stroke-width="2"/>
+        <text x="100" y="107" text-anchor="middle" font-size="20">🦔</text>
+      </svg>
+    </div>
+    <p class="тише" id="итог-колеса">Доступно вращений: <b>{{ вращений }}</b></p>
+    <div style="display:flex; gap:10px; justify-content:center">
+      <button class="кнопка" id="крутить" {% if not вращений %}disabled{% endif %}>Крутить</button>
+      <button class="кнопка тихая" id="закрыть-колесо">Закрыть</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block скрипты %}<script src="/static/js/wheel.js"></script>{% endblock %}

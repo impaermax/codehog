@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block заголовок %}{{ урок.title }} — CodeHog{% endblock %}
+{% block содержимое %}
+<div style="padding:28px 0">
+  <a class="тише" href="/app">← к курсу</a>
+  <h1 style="margin:10px 0 6px">{{ урок.title }}</h1>
+  <div class="тише">{{ урок.module.title }} · +{{ урок.xp_reward }} XP · +{{ урок.coin_reward }} 🪙</div>
+
+  {% if урок.theory %}
+    <div class="карта теория" style="margin:20px 0">{{ урок.theory }}</div>
+  {% endif %}
+
+  {% for задание in урок.tasks %}
+    <div class="карта задание" data-id="{{ задание.id }}" data-kind="{{ задание.kind.value }}"
+         style="margin-bottom:16px">
+      <div class="тише">Задание {{ loop.index }} из {{ урок.tasks | length }}</div>
+      <h3 style="margin:6px 0 12px">{{ задание.prompt }}</h3>
+
+      {% if задание.kind.value in ('predict', 'quiz') and задание.starter_code %}
+        <pre class="вопрос-код">{{ задание.starter_code }}</pre>
+      {% endif %}
+
+      {% if задание.kind.value == 'quiz' %}
+        <div class="варианты">
+          {% for вариант in задание.варианты %}
+            <button class="вариант" data-value="{{ вариант }}">{{ вариант }}</button>
+          {% endfor %}
+        </div>
+      {% elif задание.kind.value == 'predict' %}
+        <label>Что выведет код?</label>
+        <input type="text" class="ответ" placeholder="например: [1, 2, 3]">
+      {% else %}
+        <textarea class="редактор">{{ задание.starter_code }}</textarea>
+      {% endif %}
+
+      <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap">
+        <button class="кнопка проверить">Проверить</button>
+        <button class="кнопка тихая подсказать">Подсказка</button>
+      </div>
+      <div class="консоль вывод" style="margin-top:14px; display:none"></div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="награда" id="окно-награды">
+  <div class="окно">
+    <div style="font-size:52px">🎉</div>
+    <h2 style="margin:6px 0">Урок пройден</h2>
+    <p id="текст-награды" class="тише"></p>
+    <a class="кнопка большая" href="/app">Дальше →</a>
+  </div>
+</div>
+{% endblock %}
+{% block скрипты %}<script src="/static/js/lesson.js"></script>{% endblock %}
