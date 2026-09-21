@@ -1,12 +1,16 @@
 <!doctype html>
-<html lang="ru">
+<html lang="{{ язык }}">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101619">
   <title>{% block заголовок %}CodeHog — Python в игре{% endblock %}</title>
   <meta name="description" content="Тренажёр Python: короткие уроки под твой уровень, монеты и прокачка кибер-ежа.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦔</text></svg>">
+  <link rel="icon" type="image/webp" href="/static/img/ёж/лого-64.webp">
+  <link rel="apple-touch-icon" href="/static/img/ёж/лого-256.webp">
 </head>
 <body>
 {% macro языки_блок() %}
@@ -19,24 +23,28 @@
 {% endmacro %}
 <div class="обёртка">
   <header class="шапка">
-    <a class="логотип" href="{{ '/app' if user else '/' }}">🦔 Code<span>Hog</span></a>
+    <a class="логотип" href="{{ '/app' if user else '/' }}">
+      <img src="/static/img/ёж/лого-64.webp" alt="" width="28" height="28">
+      Code<span>Hog</span>
+    </a>
     {% if user %}
-      <div class="метрики">
+      <nav class="метрики">
         {{ языки_блок() }}
-        <span class="метрика монеты">🪙 <b id="баланс">{{ user.показать_баланс }}</b></span>
-        <span class="метрика огонь">🔥 {{ user.streak_current }}</span>
-        <span class="метрика">⭐ {{ user.xp }} XP</span>
+        <span class="метрика монеты" title="Монеты">🪙 <b id="баланс">{{ user.показать_баланс }}</b></span>
+        <span class="метрика огонь" title="Серия дней подряд">🔥 {{ user.streak_current }}</span>
+        <span class="метрика" title="Опыт">⭐ {{ user.xp }}</span>
         <a class="метрика" href="/shop">{{ т['шапка.магазин'] }}</a>
-        {% if user.is_admin %}<a class="метрика" href="/admin" style="color:var(--вторичный)">{{ т['шапка.панель'] }}</a>{% endif %}
+        {% if user.is_admin %}<a class="метрика" href="/admin">{{ т['шапка.панель'] }}</a>{% endif %}
         <a class="метрика" href="/logout">{{ т['шапка.выйти'] }}</a>
-      </div>
+      </nav>
     {% else %}
-      <div class="метрики">
+      <nav class="метрики">
         {{ языки_блок() }}
         <a class="метрика" href="/login">{{ т['шапка.войти'] }}</a>
-      </div>
+      </nav>
     {% endif %}
   </header>
+
   {% if бонусы %}
     <div class="успех" style="margin:16px 0">
       {% for б in бонусы %}
@@ -44,9 +52,11 @@
       {% endfor %}
     </div>
   {% endif %}
+
   {% block содержимое %}{% endblock %}
-  <footer class="тише центр" style="padding:48px 0 28px">
-    CodeHog · тренажёр Python · <a href="/hog/docs">API</a>
+
+  <footer class="центр">
+    CodeHog · тренажёр Python
   </footer>
 </div>
 {% block скрипты %}{% endblock %}
