@@ -1,8 +1,15 @@
 {% extends "base.html" %}
-{% from "_hedgehog.html" import ёж %}
+{% from "_персонаж.html" import персонаж %}
 {% block заголовок %}Мой курс — CodeHog{% endblock %}
 {% block содержимое %}
-<section class="сетка две" style="padding:32px 0; align-items:start">
+
+{% if request.query_params.get('закрыт') %}
+  <div class="инфо-блок" style="margin:16px 0">
+    Этот урок пока закрыт. Сначала пройди предыдущий.
+  </div>
+{% endif %}
+
+<section class="сетка две" style="padding:24px 0; align-items:start">
   <div class="карта">
     <h2 style="margin-top:0">{{ курс.title }}</h2>
     <p class="тише">{{ курс.summary }}</p>
@@ -11,12 +18,12 @@
   </div>
 
   <div class="карта центр">
-    {{ ёж(надето, 200) }}
+    {{ персонаж(надето, 200) }}
     <div style="margin-top:10px">
       <b>{{ user.username }}</b>
       <div class="тише">🔥 серия {{ user.streak_current }} дн. · рекорд {{ user.streak_best }}</div>
     </div>
-    <div style="margin-top:14px; display:flex; gap:10px; justify-content:center">
+    <div style="margin-top:14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
       <a class="кнопка тихая" href="/shop">Магазин</a>
       <button class="кнопка" id="открыть-колесо" {% if not вращений %}disabled{% endif %}>
         Колесо{% if вращений %} ({{ вращений }}){% endif %}
@@ -25,17 +32,27 @@
   </div>
 </section>
 
-<section>
+{% set открытые = курс.открытые_уроки %}
+<section style="padding-bottom:40px">
   {% for модуль in курс.modules %}
     <div class="модуль">
       <h3>{{ loop.index }}. {{ модуль.title }}</h3>
       <p>{{ модуль.description }}</p>
       <div class="уроки">
         {% for урок in модуль.lessons %}
-          <a class="урок {% if урок.is_completed %}готов{% endif %}" href="/lesson/{{ урок.id }}">
-            <b>{% if урок.is_completed %}✓{% else %}{{ loop.index }}{% endif %}</b>
-            <span>{{ урок.title }}</span>
-          </a>
+          {% set доступен = урок.id in открытые %}
+          {% if доступен %}
+            <a class="урок {{ 'готов' if урок.is_completed }}" href="/lesson/{{ урок.id }}">
+              <b>{{ '✓' if урок.is_completed else loop.index }}</b>
+              <span>{{ урок.title }}</span>
+            </a>
+          {% else %}
+            <div class="урок закрыт" title="Сначала пройди предыдущий урок"
+                 aria-disabled="true">
+              <b>🔒</b>
+              <span>{{ урок.title }}</span>
+            </div>
+          {% endif %}
         {% endfor %}
       </div>
     </div>
@@ -48,24 +65,24 @@
     <div class="колесо-обёртка">
       <div class="стрелка"></div>
       <svg class="колесо" id="колесо" viewBox="0 0 200 200">
-        {% set цвета = ['#35e0a1', '#7c8cff', '#ffc94d', '#ff9d5c', '#ff6b6b'] %}
+        {% set цвета = ['#35E0A1', '#94BDFF', '#F3BE57', '#FFC56D', '#FF8694'] %}
         {% set всего = сектора | sum(attribute=1) %}
-        <circle cx="100" cy="100" r="96" fill="#1b2431" stroke="#263143" stroke-width="2"/>
+        <circle cx="100" cy="100" r="96" fill="#0B1013" stroke="#2D3B43" stroke-width="2"/>
         {% set ns = namespace(угол=-90) %}
         {% for монеты, вес in сектора %}
           {% set доля = вес * 360 / всего %}
-          {# сектор рисуем толстой дугой: длина штриха пропорциональна вероятности #}
+          {# сектор — толстая дуга, длина штриха пропорциональна вероятности #}
           <circle cx="100" cy="100" r="74" fill="none" stroke="{{ цвета[loop.index0] }}"
-                  stroke-width="44" opacity=".85"
+                  stroke-width="44" opacity=".9"
                   stroke-dasharray="{{ (доля / 360 * 465) | round(2) }} 465"
                   transform="rotate({{ ns.угол }} 100 100)"/>
           <g transform="rotate({{ ns.угол + доля / 2 }} 100 100)">
             <text x="100" y="34" text-anchor="middle" font-size="15" font-weight="800"
-                  fill="#0b0f16">{{ монеты }}</text>
+                  fill="#092017">{{ монеты }}</text>
           </g>
           {% set ns.угол = ns.угол + доля %}
         {% endfor %}
-        <circle cx="100" cy="100" r="26" fill="#131a25" stroke="#35e0a1" stroke-width="2"/>
+        <circle cx="100" cy="100" r="26" fill="#192228" stroke="#35E0A1" stroke-width="2"/>
         <text x="100" y="107" text-anchor="middle" font-size="20">🦔</text>
       </svg>
     </div>

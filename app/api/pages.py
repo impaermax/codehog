@@ -13,15 +13,19 @@ from app.api.deps import контекст_шаблона, текущий_пол�
 from app.database import получить_сессию
 from app.models import Course, Item, Lesson, TestAttempt, User, UserItem, Уровень
 from app.services.auth import COOKIE, Аутентификация, ОшибкаВхода
+from app.services.awards import Медали
 from app.services.admin import Админка
 from app.services.course import ГенераторКурса
 from app.services.prefetch import запустить as подготовить_фоном
 from app.services.economy import СЕКТОРА, Экономика
 from app.services.i18n import ЯЗЫКИ, выбрать, перевод
 from app.services.testbank import АдаптивныйТест
+from app.services.text import разметка
 
 роутер = APIRouter()
 шаблоны = Jinja2Templates(directory="app/templates")
+# теория приходит от модели с **выделением** — рендерим её безопасным фильтром
+шаблоны.env.filters["разметка"] = разметка
 
 
 def _контекст(request: Request, юзер: User | None, сессия: Session, **прочее) -> dict:
@@ -166,6 +170,11 @@ def урок(lesson_id: int, request: Request,
     if урок_ is None or урок_.module.course.user_id != юзер.id:
         return RedirectResponse("/app", status_code=303)
 
+    # Требование 2.5: пока предыдущий урок не пройден, дальше нельзя.
+    # Проверка именно на сервере — прямая ссылка её не обходит.
+    if урок_.id not in урок_.module.course.открытые_уроки:
+        return RedirectResponse("/app?закрыт=1", status_code=303)
+
     слабые: list[str] = []
     попытка = сессия.scalar(
         select(TestAttempt).where(TestAttempt.user_id == юзер.id).order_by(TestAttempt.id.desc())
@@ -176,6 +185,28 @@ def урок(lesson_id: int, request: Request,
     подготовить_фоном(юзер.id)          # пополняем буфер следующих уроков
     return шаблоны.TemplateResponse(
         request, "lesson.html", _контекст(request, юзер, сессия, урок=урок_))
+
+
+@роутер.get("/profile", response_class=HTMLResponse)
+def профиль(request: Request, юзер: User | None = Depends(текущий_пользователь),
+            сессия: Session = Depends(получить_сессию)):
+    """Профиль: прогресс, монеты, серия и полученные медали (требование 3.6, UC-7)."""
+    if not юзер:
+        return RedirectResponse("/", status_code=303)
+    медали = Медали(сессия)
+    # Догоняем то, что заработано вне урока: покупки, колесо, вводный тест.
+    # Иначе условие выполнено, а медали нет до следующего пройденного урока.
+    медали.проверить(юзер)
+    курс = сессия.scalar(
+        select(Course).where(Course.user_id == юзер.id, Course.is_active.is_(True))
+        .order_by(Course.id.desc())
+    )
+    return шаблоны.TemplateResponse(request, "profile.html", _контекст(
+        request, юзер, сессия,
+        курс=курс,
+        медали=медали.все_с_отметкой(юзер),
+        показатели=медали.показатели(юзер),
+    ))
 
 
 @роутер.get("/shop", response_class=HTMLResponse)

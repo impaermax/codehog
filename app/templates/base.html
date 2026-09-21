@@ -33,6 +33,7 @@
         <span class="метрика монеты" title="Монеты">🪙 <b id="баланс">{{ user.показать_баланс }}</b></span>
         <span class="метрика огонь" title="Серия дней подряд">🔥 {{ user.streak_current }}</span>
         <span class="метрика" title="Опыт">⭐ {{ user.xp }}</span>
+        <a class="метрика" href="/profile">{{ т.get('шапка.профиль', 'Профиль') }}</a>
         <a class="метрика" href="/shop">{{ т['шапка.магазин'] }}</a>
         {% if user.is_admin %}<a class="метрика" href="/admin">{{ т['шапка.панель'] }}</a>{% endif %}
         <a class="метрика" href="/logout">{{ т['шапка.выйти'] }}</a>

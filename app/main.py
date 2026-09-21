@@ -17,6 +17,7 @@ from app.config import settings
 from app.database import SessionLocal, engine, создать_таблицы
 from app.services.admin import Админка
 from app.services.migrate import дополнить_схему
+from app.services.awards import засеять_награды
 from app.services.seed import засеять_каталог
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -50,8 +51,10 @@ def подготовить() -> None:
             сессия = SessionLocal()
             try:
                 добавлено = засеять_каталог(сессия)
+                медалей, мемов = засеять_награды(сессия)
                 админ = Админка(сессия).создать_админа(settings.admin_password)
                 лог.info("Админ: %s / пароль из ADMIN_PASSWORD", админ.username)
+                лог.info("Медалей добавлено: %s, мемов: %s", медалей, мемов)
             finally:
                 сессия.close()
         finally:

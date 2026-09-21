@@ -18,12 +18,12 @@ bash run.sh               # http://127.0.0.1:8000
 
 | Слой | Файлы |
 |---|---|
-| Модели (13 таблиц) | `app/models/` — user, learning, game, admin |
+| Модели (16 таблиц) | `app/models/` — user, learning, game, admin |
 | Бизнес-логика | `app/services/` — economy, sandbox, course, testbank, ai, admin, i18n |
 | HTTP | `app/api/` — pages (страницы), actions (JSON), admin (панель) |
 | Интерфейс | `app/templates/`, `app/static/` |
 
-### База: 13 таблиц
+### База: 16 таблиц
 
 `users` · `daily_activity` · `coin_transactions` · `test_attempts` · `courses` ·
 `modules` · `lessons` · `tasks` · `submissions` · `items` · `inventory` ·

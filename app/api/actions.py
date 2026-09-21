@@ -9,6 +9,7 @@ from app.api.deps import текущий_пользователь, токен_г�
 from app.database import получить_сессию
 from app.models import Item, Lesson, Submission, Task, TestAttempt, User, UserItem, ТипЗадания
 from app.services.ai import ИИНедоступен, КлиентИИ
+from app.services.awards import Медали, случайный_мем
 from app.services.economy import НедостаточноМонет, СЕКТОРА, Экономика
 from app.services.sandbox import Песочница
 from app.services.testbank import АдаптивныйТест, ПО_ID
@@ -126,12 +127,20 @@ def проверить_задание(
         урок.is_completed = True
         сессия.flush()
         итог = Экономика(сессия).отметить_урок(юзер, урок.xp_reward)
+        # медали проверяем после начисления: условия считаются по свежим данным
+        новые_медали = Медали(сессия).проверить(юзер)
+        мем = случайный_мем(сессия)
         итог_урока = {
             "coins": итог.всего_монет,
             "xp": итог.опыт,
             "streak": итог.стрик,
             "spins": итог.вращений_доступно,
             "capped": итог.награда_ограничена,
+            "medals": [
+                {"icon": м.icon, "title": м.title, "description": м.description}
+                for м in новые_медали
+            ],
+            "meme": {"url": мем.image_url, "caption": мем.caption} if мем else None,
         }
     сессия.commit()
 

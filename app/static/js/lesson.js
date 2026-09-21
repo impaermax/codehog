@@ -62,23 +62,53 @@
       показать(строки.join("\n"));
 
       if (д.correct) {
-        карточка.style.borderColor = "var(--акцент)";
+        карточка.classList.add("верно");
         карточка.querySelectorAll(".вариант").forEach((э) => {
           if (э.dataset.value === выбран) э.classList.add("верно");
         });
       }
 
-      if (д.lesson_done) {
-        const н = д.lesson_done;
-        document.getElementById("текст-награды").innerHTML =
-          `+${н.xp} XP и +${н.coins} 🪙 · серия ${н.streak} дн.` +
-          (н.spins ? `<br>Доступно вращений колеса: <b>${н.spins}</b>` : "") +
-          (н.capped ? '<br><span class="тише">Сегодня уже три урока — монеты за следующие не начисляются.</span>' : "");
-        document.getElementById("окно-награды").classList.add("видно");
-        const баланс = document.getElementById("баланс");
-        if (баланс) баланс.textContent = Number(баланс.textContent) + н.coins;
-      }
+      if (д.lesson_done) показатьНаграду(д.lesson_done);
     };
+
+    function показатьНаграду(н) {
+      document.getElementById("текст-награды").innerHTML =
+        `+${н.xp} XP и +${н.coins} 🪙 · серия ${н.streak} дн.` +
+        (н.spins ? `<br>Доступно вращений колеса: <b>${н.spins}</b>` : "") +
+        (н.capped ? '<br><span class="тише">Сегодня уже три урока — монеты за следующие не начисляются.</span>' : "");
+
+      // Мем после пройденного урока — требование 3.1, UC-2
+      const рамкаМема = document.getElementById("мем");
+      if (рамкаМема) {
+        if (н.meme) {
+          рамкаМема.querySelector("img").src = н.meme.url;
+          рамкаМема.querySelector("figcaption").textContent = н.meme.caption || "";
+          рамкаМема.style.display = "block";
+        } else {
+          рамкаМема.style.display = "none";
+        }
+      }
+
+      // Новые медали — требование 3.5, UC-7
+      const списокМедалей = document.getElementById("медали-награда");
+      if (списокМедалей) {
+        const медали = н.medals || [];
+        списокМедалей.innerHTML = медали.map((м) =>
+          `<div class="медаль"><span class="значок">${экранировать(м.icon)}</span>` +
+          `<span class="имя">${экранировать(м.title)}</span></div>`).join("");
+        списокМедалей.previousElementSibling.style.display = медали.length ? "block" : "none";
+        списокМедалей.style.display = медали.length ? "grid" : "none";
+      }
+
+      document.getElementById("окно-награды").classList.add("видно");
+
+      // У админа в шапке стоит «∞» — складывать с ним нельзя, выйдет NaN
+      const баланс = document.getElementById("баланс");
+      if (баланс) {
+        const было = parseInt(баланс.textContent, 10);
+        if (Number.isFinite(было)) баланс.textContent = было + н.coins;
+      }
+    }
 
     карточка.querySelector(".подсказать").onclick = async (e) => {
       e.target.disabled = true;

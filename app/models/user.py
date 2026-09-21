@@ -73,6 +73,9 @@ class User(Base, ВременнЫеМетки):
     test_attempts: Mapped[list["TestAttempt"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     items: Mapped[list["UserItem"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     spins: Mapped[list["WheelSpin"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    achievements: Mapped[list["UserAchievement"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     transactions: Mapped[list["CoinTransaction"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", order_by="CoinTransaction.id.desc()"
     )

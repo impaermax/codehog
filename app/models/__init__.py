@@ -2,6 +2,7 @@
 from app.models.admin import BonusGrant
 from app.models.base import Base, ВременнЫеМетки, сейчас
 from app.models.game import Item, Слот, UserItem, WheelSpin
+from app.models.reward import Achievement, Meme, UserAchievement, ТипУсловия
 from app.models.learning import (
     Course,
     Lesson,
@@ -18,4 +19,5 @@ __all__ = [
     "User", "DailyActivity", "CoinTransaction", "Уровень", "ПричинаМонет",
     "TestAttempt", "Course", "Module", "Lesson", "Task", "Submission", "ТипЗадания",
     "Item", "UserItem", "WheelSpin", "Слот", "BonusGrant",
+    "Achievement", "UserAchievement", "Meme", "ТипУсловия",
 ]
