@@ -9,13 +9,13 @@
       {{ т['герой.заголовок2'] }} <em>{{ т['герой.акцент'] }}</em>.
     </h1>
     <p class="подзаголовок">{{ т['герой.подзаголовок'] }}</p>
-    <a class="кнопка большая" href="/test">{{ т['герой.кнопка'] }}</a>
+    <a class="кнопка большая" href="{{ база }}/test">{{ т['герой.кнопка'] }}</a>
     <div class="под-кнопкой">{{ т['герой.подкнопкой'] }}</div>
   </div>
 
   <div class="сцена">
     <span class="метка" style="position:absolute; top:20px; left:20px">Твой прогресс видно</span>
-    <img src="/static/img/ёж/ёж-базовый.webp" width="734" height="900"
+    <img src="{{ база }}/static/img/ёж/ёж-базовый.webp" width="734" height="900"
          alt="Кибер-ёж — персонаж, которого ты прокачиваешь" fetchpriority="high">
   </div>
 </section>
@@ -28,7 +28,7 @@
         ('неон',    '02', 'Неон'),
         ('мобиль',  '03', 'Хог-мобиль')] %}
       <figure class="ступень {% if loop.first %}активна{% endif %}" data-шаг="{{ loop.index0 }}">
-        <img src="/static/img/ёж/ёж-{{ ключ }}.webp" alt="{{ подпись }}"
+        <img src="{{ база }}/static/img/ёж/ёж-{{ ключ }}.webp" alt="{{ подпись }}"
              loading="{{ 'eager' if loop.first else 'lazy' }}">
         <figcaption>
           <span class="метка">{{ номер }} / {{ подпись }}</span>
@@ -63,4 +63,4 @@
   </div>
 </section>
 {% endblock %}
-{% block скрипты %}<script src="/static/js/landing.js"></script>{% endblock %}
+{% block скрипты %}<script src="{{ база }}/static/js/landing.js"></script>{% endblock %}

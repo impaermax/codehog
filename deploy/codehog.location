@@ -1,18 +1,33 @@
-# CodeHogwarts на главной maks.my. Всё остальное (kedr, idealsteklo, diving, /api/ платформы)
-# продолжает работать: у nginx выигрывает самый длинный совпавший префикс,
-# а этот блок ловит только то, что не разобрали остальные.
-location / {
+# CodeHogwarts на https://maks.my/codehog
+#
+# Приложение само живёт внутри подкаталога: при BASE_PATH=codehog все его
+# маршруты начинаются с /codehog. Поэтому nginx НЕ срезает префикс, а
+# передаёт путь как есть.
+#
+# ВАЖНО: в proxy_pass нет завершающего слеша. Со слешем nginx вырезал бы
+# «/codehog/» из пути, и приложение отвечало бы 404 на собственные адреса.
+#
+# Остальные сайты на домене (kedr, idealsteklo, diving, /api/ платформы)
+# не затрагиваются: nginx выбирает самый длинный совпавший префикс.
+
+location /codehog/ {
   proxy_pass http://127.0.0.1:8791;
   proxy_http_version 1.1;
   proxy_set_header Host $host;
   proxy_set_header X-Real-IP $remote_addr;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto https;
-  proxy_read_timeout 120s;
+  proxy_read_timeout 120s;   # генерация урока моделью занимает до минуты
 }
 
-# статика приложения отдаётся с диска, минуя питон
-location /static/ {
+# Без слеша на конце адрес /codehog не попал бы в блок выше и ушёл бы
+# на главную домена. Отправляем его на канонический адрес со слешем.
+location = /codehog {
+  return 301 /codehog/;
+}
+
+# Статика отдаётся с диска, минуя питон
+location /codehog/static/ {
   alias /opt/codehog/app/static/;
   expires 7d;
   add_header Cache-Control "public";

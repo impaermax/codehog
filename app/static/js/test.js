@@ -1,5 +1,6 @@
 // Входной тест: показываем вопросы этапами, ответы проверяет сервер.
 (() => {
+  const БАЗА = window.БАЗА || "";
   let очередь = [...window.ВОПРОСЫ];
   let ответы = [];
   let текущий = null;
@@ -36,7 +37,7 @@
   }
 
   async function отправитьЭтап() {
-    const ответ = await fetch("/hog/test/submit", {
+    const ответ = await fetch(`${БАЗА}/hog/test/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ answers: ответы }),

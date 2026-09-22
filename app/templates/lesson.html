@@ -3,7 +3,7 @@
 {% block содержимое %}
 
 <div style="padding:24px 0 8px">
-  <a class="тише" href="/app">← к курсу</a>
+  <a class="тише" href="{{ база }}/app">← к курсу</a>
   <h1 style="margin:10px 0 8px">{{ урок.title }}</h1>
   <div class="тише">
     {{ урок.module.title }} · +{{ урок.xp_reward }} XP · +{{ урок.coin_reward }} 🪙
@@ -52,7 +52,7 @@
 {# ── Награда за урок: монеты, мем (3.1) и новые медали (3.5) ── #}
 <div class="награда" id="окно-награды">
   <div class="окно">
-    <img src="/static/img/ёж/ёж-радость.webp" alt="" width="140"
+    <img src="{{ база }}/static/img/ёж/ёж-радость.webp" alt="" width="140"
          style="margin:0 auto 8px" loading="lazy">
     <h2 style="margin:0 0 8px">Урок пройден</h2>
     <p id="текст-награды" class="тише"></p>
@@ -66,12 +66,12 @@
     <h3 style="display:none; margin:20px 0 10px; font-size:16px">Новые медали</h3>
     <div class="медали" id="медали-награда" style="display:none"></div>
 
-    <a class="кнопка большая" href="/app" style="margin-top:20px">Дальше →</a>
+    <a class="кнопка большая" href="{{ база }}/app" style="margin-top:20px">Дальше →</a>
   </div>
 </div>
 {% endblock %}
 
 {% block скрипты %}
-<script src="/static/js/highlight.js"></script>
-<script src="/static/js/lesson.js"></script>
+<script src="{{ база }}/static/js/highlight.js"></script>
+<script src="{{ база }}/static/js/lesson.js"></script>
 {% endblock %}

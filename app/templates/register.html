@@ -7,10 +7,10 @@
     {% if уровень %}
       <div class="успех">Твой уровень: <b>{{ уровень.подпись }}</b> — курс соберём под него.</div>
     {% else %}
-      <p class="тише">Тест ещё не пройден — <a href="/test">пройди его</a>, курс будет точнее.</p>
+      <p class="тише">Тест ещё не пройден — <a href="{{ база }}/test">пройди его</a>, курс будет точнее.</p>
     {% endif %}
     {% if ошибка %}<div class="ошибка">{{ ошибка }}</div>{% endif %}
-    <form method="post" action="/register">
+    <form method="post" action="{{ база }}/register">
       <input type="hidden" name="level" value="{{ уровень.value if уровень else 'beginner' }}">
       <label for="username">Как тебя звать</label>
       <input id="username" name="username" type="text" required placeholder="Кибер-ёж" autocomplete="nickname">
@@ -21,7 +21,7 @@
              placeholder="минимум 6 символов" autocomplete="new-password">
       <button class="кнопка большая" type="submit" style="width:100%">Начать курс →</button>
     </form>
-    <p class="тише центр" style="margin-bottom:0">Уже есть аккаунт? <a href="/login">Войти</a></p>
+    <p class="тише центр" style="margin-bottom:0">Уже есть аккаунт? <a href="{{ база }}/login">Войти</a></p>
   </div>
 </div>
 {% endblock %}

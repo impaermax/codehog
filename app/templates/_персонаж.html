@@ -12,7 +12,7 @@
       else ('неон' if надето.get('skin') == 'skin_neon'
       else состояние)) %}
   <div class="персонаж" style="--высота:{{ высота }}px">
-    <img src="/static/img/ёж/ёж-{{ кадр }}.webp"
+    <img src="{{ база }}/static/img/ёж/ёж-{{ кадр }}.webp"
          alt="{{ подпись or 'Твой кибер-ёж' }}" loading="lazy">
     {% if надето.get('head') or надето.get('face') or надето.get('back') %}
       <div class="надетое">

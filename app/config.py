@@ -39,6 +39,11 @@ class Settings:
         default_factory=lambda: os.getenv("ADMIN_PASSWORD", "codehog-admin")
     )
     secret_key: str = field(default_factory=lambda: os.getenv("SECRET_KEY", "dev-secret-change-me"))
+    # Подкаталог, в котором живёт приложение: "" для корня домена,
+    # "/codehog" — чтобы открывалось по https://maks.my/codehog
+    base_path: str = field(
+        default_factory=lambda: "/" + os.getenv("BASE_PATH", "").strip("/") if os.getenv("BASE_PATH", "").strip("/") else ""
+    )
     database_url: str = field(
         default_factory=lambda: os.getenv("DATABASE_URL", f"sqlite:///{КОРЕНЬ / 'data' / 'codehog.db'}")
     )

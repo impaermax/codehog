@@ -1,5 +1,6 @@
 // Проверка заданий урока: код уходит на сервер, там он реально запускается.
 (() => {
+  const БАЗА = window.БАЗА || "";
   const экранировать = (s) => String(s ?? "").replace(/[&<>]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
@@ -32,7 +33,7 @@
       показать("Проверяю…", "");
       let д;
       try {
-        const ответ = await fetch(`/hog/task/${id}/check`, {
+        const ответ = await fetch(`${БАЗА}/hog/task/${id}/check`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(собратьОтвет()),
@@ -115,7 +116,7 @@
       показать("Думаю…", "");
       const код = тип === "code" ? карточка.querySelector(".редактор").value : "";
       try {
-        const ответ = await fetch(`/hog/task/${id}/hint`, {
+        const ответ = await fetch(`${БАЗА}/hog/task/${id}/hint`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: код }),

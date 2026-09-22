@@ -1,5 +1,6 @@
 // Колесо: приз определяет сервер, браузер только показывает анимацию.
 (() => {
+  const БАЗА = window.БАЗА || "";
   const окно = document.getElementById("окно-колеса");
   const колесо = document.getElementById("колесо");
   const крутить = document.getElementById("крутить");
@@ -21,7 +22,7 @@
 
     let данные;
     try {
-      const ответ = await fetch("/hog/wheel/spin", { method: "POST" });
+      const ответ = await fetch(`${БАЗА}/hog/wheel/spin`, { method: "POST" });
       данные = await ответ.json();
       if (!ответ.ok) throw new Error(данные.detail || "Не получилось");
     } catch (e) {

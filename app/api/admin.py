@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import контекст_шаблона, текущий_пользователь
+from app.config import settings
 from app.database import получить_сессию
 from app.models import Course, Item, Lesson, User
 from app.services.admin import Админка
@@ -45,7 +46,7 @@ def раздать_бонус(amount: int = Form(...), comment: str = Form(""),
                   сессия: Session = Depends(получить_сессию)):
     сумма = max(1, min(100_000, amount))
     Админка(сессия).начислить_всем(сумма, comment or "подарок от команды", админ.username)
-    return RedirectResponse("/admin", status_code=303)
+    return RedirectResponse(f"{settings.base_path}/admin", status_code=303)
 
 
 @роутер.post("/reset")
@@ -53,7 +54,7 @@ def сбросить_себя(админ: User = Depends(только_админ
                   сессия: Session = Depends(получить_сессию)):
     """Обнуляет прогресс самого админа — для повторной проверки воронки."""
     Админка(сессия).сбросить(админ)
-    return RedirectResponse("/app", status_code=303)
+    return RedirectResponse(f"{settings.base_path}/app", status_code=303)
 
 
 @роутер.post("/reset/{user_id}")
@@ -63,7 +64,7 @@ def сбросить_пользователя(user_id: int, админ: User = D
     if цель is None:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     Админка(сессия).сбросить(цель)
-    return RedirectResponse("/admin", status_code=303)
+    return RedirectResponse(f"{settings.base_path}/admin", status_code=303)
 
 
 @роутер.post("/unlock")
@@ -73,7 +74,7 @@ def открыть_всё(админ: User = Depends(только_админ),
     экономика = Экономика(сессия)
     for предмет in сессия.scalars(select(Item).where(Item.is_active.is_(True))).all():
         экономика.купить(админ, предмет)
-    return RedirectResponse("/shop", status_code=303)
+    return RedirectResponse(f"{settings.base_path}/shop", status_code=303)
 
 
 @роутер.post("/complete")
@@ -93,4 +94,4 @@ def пройти_курс(админ: User = Depends(только_админ),
                 з.is_completed = True
             экономика.отметить_урок(админ, урок.xp_reward)
     сессия.commit()
-    return RedirectResponse("/app", status_code=303)
+    return RedirectResponse(f"{settings.base_path}/app", status_code=303)

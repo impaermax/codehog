@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import контекст_шаблона, текущий_пользователь, токен_гостя
+from app.config import settings
 from app.database import получить_сессию
 from app.models import Course, Item, Lesson, TestAttempt, User, UserItem, Уровень
 from app.services.auth import COOKIE, Аутентификация, ОшибкаВхода
@@ -26,6 +27,10 @@ from app.services.text import разметка
 шаблоны = Jinja2Templates(directory="app/templates")
 # теория приходит от модели с **выделением** — рендерим её безопасным фильтром
 шаблоны.env.filters["разметка"] = разметка
+# Подкаталог приложения. В шаблонах все ссылки строятся как {{ база }}/…,
+# поэтому переезд на /codehog не требует правки разметки.
+БАЗА = settings.base_path
+шаблоны.env.globals["база"] = БАЗА
 
 
 def _контекст(request: Request, юзер: User | None, сессия: Session, **прочее) -> dict:
@@ -37,7 +42,7 @@ def _контекст(request: Request, юзер: User | None, сессия: Ses
 def лендинг(request: Request, юзер: User | None = Depends(текущий_пользователь),
             сессия: Session = Depends(получить_сессию)):
     if юзер:
-        return RedirectResponse("/app", status_code=303)
+        return RedirectResponse(f"{БАЗА}/app", status_code=303)
     return шаблоны.TemplateResponse(
         request, "landing.html", _контекст(request, None, сессия))
 
@@ -101,7 +106,7 @@ def регистрация(
 
     ГенераторКурса(сессия).создать(юзер, слабые)
     подготовить_фоном(юзер.id)          # следующие уроки готовятся, пока человек читает первый
-    ответ = RedirectResponse("/app", status_code=303)
+    ответ = RedirectResponse(f"{БАЗА}/app", status_code=303)
     ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
                      httponly=True, samesite="lax")
     return ответ
@@ -122,7 +127,7 @@ def вход(request: Request, email: str = Form(...), password: str = Form(...)
         return шаблоны.TemplateResponse(
         request, "login.html", _контекст(request, None, сессия, ошибка=str(e)), status_code=400
         )
-    ответ = RedirectResponse("/app", status_code=303)
+    ответ = RedirectResponse(f"{БАЗА}/app", status_code=303)
     ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
                      httponly=True, samesite="lax")
     return ответ
@@ -131,7 +136,7 @@ def вход(request: Request, email: str = Form(...), password: str = Form(...)
 @роутер.get("/lang/{code}")
 def сменить_язык(code: str, request: Request):
     """Переключение языка. Русский по умолчанию, чеченский — для своих."""
-    назад = request.headers.get("referer") or "/"
+    назад = request.headers.get("referer") or f"{БАЗА}/"
     ответ = RedirectResponse(назад, status_code=303)
     ответ.set_cookie("lang", выбрать(code), max_age=60 * 60 * 24 * 365, samesite="lax")
     return ответ
@@ -139,7 +144,7 @@ def сменить_язык(code: str, request: Request):
 
 @роутер.get("/logout")
 def выход():
-    ответ = RedirectResponse("/", status_code=303)
+    ответ = RedirectResponse(f"{БАЗА}/", status_code=303)
     ответ.delete_cookie(COOKIE)
     return ответ
 
@@ -148,7 +153,7 @@ def выход():
 def кабинет(request: Request, юзер: User | None = Depends(текущий_пользователь),
             сессия: Session = Depends(получить_сессию)):
     if not юзер:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(f"{БАЗА}/", status_code=303)
     курс = сессия.scalar(
         select(Course).where(Course.user_id == юзер.id, Course.is_active.is_(True))
         .order_by(Course.id.desc())
@@ -165,15 +170,15 @@ def урок(lesson_id: int, request: Request,
          юзер: User | None = Depends(текущий_пользователь),
          сессия: Session = Depends(получить_сессию)):
     if not юзер:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(f"{БАЗА}/", status_code=303)
     урок_ = сессия.get(Lesson, lesson_id)
     if урок_ is None or урок_.module.course.user_id != юзер.id:
-        return RedirectResponse("/app", status_code=303)
+        return RedirectResponse(f"{БАЗА}/app", status_code=303)
 
     # Требование 2.5: пока предыдущий урок не пройден, дальше нельзя.
     # Проверка именно на сервере — прямая ссылка её не обходит.
     if урок_.id not in урок_.module.course.открытые_уроки:
-        return RedirectResponse("/app?закрыт=1", status_code=303)
+        return RedirectResponse(f"{БАЗА}/app?закрыт=1", status_code=303)
 
     слабые: list[str] = []
     попытка = сессия.scalar(
@@ -192,7 +197,7 @@ def профиль(request: Request, юзер: User | None = Depends(текущ�
             сессия: Session = Depends(получить_сессию)):
     """Профиль: прогресс, монеты, серия и полученные медали (требование 3.6, UC-7)."""
     if not юзер:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(f"{БАЗА}/", status_code=303)
     медали = Медали(сессия)
     # Догоняем то, что заработано вне урока: покупки, колесо, вводный тест.
     # Иначе условие выполнено, а медали нет до следующего пройденного урока.
@@ -213,7 +218,7 @@ def профиль(request: Request, юзер: User | None = Depends(текущ�
 def магазин(request: Request, юзер: User | None = Depends(текущий_пользователь),
             сессия: Session = Depends(получить_сессию)):
     if not юзер:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse(f"{БАЗА}/", status_code=303)
     предметы = сессия.scalars(
         select(Item).where(Item.is_active.is_(True)).order_by(Item.sort_order)
     ).all()

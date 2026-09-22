@@ -8,23 +8,23 @@
   <meta name="description" content="Тренажёр Python: короткие уроки под твой уровень, монеты и прокачка кибер-ежа.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" type="image/webp" href="/static/img/ёж/лого-64.webp">
-  <link rel="apple-touch-icon" href="/static/img/ёж/лого-256.webp">
+  <link rel="stylesheet" href="{{ база }}/static/css/style.css">
+  <link rel="icon" type="image/webp" href="{{ база }}/static/img/ёж/лого-64.webp">
+  <link rel="apple-touch-icon" href="{{ база }}/static/img/ёж/лого-256.webp">
 </head>
 <body>
 {% macro языки_блок() %}
   <span class="языки">
     {% for код, подпись in языки.items() %}
-      <a href="/lang/{{ код }}" class="{{ 'выбран' if код == язык }}"
+      <a href="{{ база }}/lang/{{ код }}" class="{{ 'выбран' if код == язык }}"
          title="{{ 'Нохчийн мотт' if код == 'ce' else подпись }}">{{ подпись }}</a>
     {% endfor %}
   </span>
 {% endmacro %}
 <div class="обёртка">
   <header class="шапка">
-    <a class="логотип" href="{{ '/app' if user else '/' }}">
-      <img src="/static/img/ёж/лого-64.webp" alt="" width="28" height="28">
+    <a class="логотип" href="{{ база }}{{ '/app' if user else '/' }}">
+      <img src="{{ база }}/static/img/ёж/лого-64.webp" alt="" width="28" height="28">
       Code<span>Hogwarts</span>
     </a>
     {% if user %}
@@ -33,15 +33,15 @@
         <span class="метрика монеты" title="Монеты">🪙 <b id="баланс">{{ user.показать_баланс }}</b></span>
         <span class="метрика огонь" title="Серия дней подряд">🔥 {{ user.streak_current }}</span>
         <span class="метрика" title="Опыт">⭐ {{ user.xp }}</span>
-        <a class="метрика" href="/profile">{{ т.get('шапка.профиль', 'Профиль') }}</a>
-        <a class="метрика" href="/shop">{{ т['шапка.магазин'] }}</a>
-        {% if user.is_admin %}<a class="метрика" href="/admin">{{ т['шапка.панель'] }}</a>{% endif %}
-        <a class="метрика" href="/logout">{{ т['шапка.выйти'] }}</a>
+        <a class="метрика" href="{{ база }}/profile">{{ т.get('шапка.профиль', 'Профиль') }}</a>
+        <a class="метрика" href="{{ база }}/shop">{{ т['шапка.магазин'] }}</a>
+        {% if user.is_admin %}<a class="метрика" href="{{ база }}/admin">{{ т['шапка.панель'] }}</a>{% endif %}
+        <a class="метрика" href="{{ база }}/logout">{{ т['шапка.выйти'] }}</a>
       </nav>
     {% else %}
       <nav class="метрики">
         {{ языки_блок() }}
-        <a class="метрика" href="/login">{{ т['шапка.войти'] }}</a>
+        <a class="метрика" href="{{ база }}/login">{{ т['шапка.войти'] }}</a>
       </nav>
     {% endif %}
   </header>
@@ -60,6 +60,7 @@
     CodeHogwarts · тренажёр Python
   </footer>
 </div>
+<script>window.БАЗА = "{{ база }}";</script>
 {% block скрипты %}{% endblock %}
 </body>
 </html>

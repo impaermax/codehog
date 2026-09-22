@@ -22,7 +22,7 @@
       <h2 style="margin:8px 0">Твой уровень: <span id="уровень" style="color:var(--акцент)"></span></h2>
       <p class="тише" id="счёт"></p>
       <div id="пробелы" class="тише" style="margin:14px 0"></div>
-      <a class="кнопка большая" id="кдалее" href="/register">Сохранить результат и начать</a>
+      <a class="кнопка большая" id="кдалее" href="{{ база }}/register">Сохранить результат и начать</a>
     </div>
     <div class="карта" style="margin-top:16px">
       <h3 style="margin-top:0">Разбор ответов</h3>
@@ -33,5 +33,5 @@
 {% endblock %}
 {% block скрипты %}
 <script>window.ВОПРОСЫ = {{ вопросы | tojson }};</script>
-<script src="/static/js/test.js"></script>
+<script src="{{ база }}/static/js/test.js"></script>
 {% endblock %}

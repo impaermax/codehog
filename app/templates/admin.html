@@ -42,7 +42,7 @@
     <div class="карта">
       <h3 style="margin-top:0">Начислить бонус всем</h3>
       <p class="тише">Упадёт каждому при следующем заходе — даже тем, кто сейчас офлайн.</p>
-      <form method="post" action="/admin/bonus">
+      <form method="post" action="{{ база }}/admin/bonus">
         <label for="amount">Сколько монет</label>
         <input id="amount" name="amount" type="text" value="100" inputmode="numeric">
         <label for="comment">Повод (увидит пользователь)</label>
@@ -55,9 +55,9 @@
   <section class="карта" style="margin-bottom:22px">
     <h3 style="margin-top:0">Быстрые действия для себя</h3>
     <div style="display:flex; gap:10px; flex-wrap:wrap">
-      <form method="post" action="/admin/unlock"><button class="кнопка тихая">Выдать все скины</button></form>
-      <form method="post" action="/admin/complete"><button class="кнопка тихая">Пройти весь курс</button></form>
-      <form method="post" action="/admin/reset"
+      <form method="post" action="{{ база }}/admin/unlock"><button class="кнопка тихая">Выдать все скины</button></form>
+      <form method="post" action="{{ база }}/admin/complete"><button class="кнопка тихая">Пройти весь курс</button></form>
+      <form method="post" action="{{ база }}/admin/reset"
             onsubmit="return confirm('Сбросить свой прогресс до нуля?')">
         <button class="кнопка тихая" style="color:var(--опасно)">Сбросить себя</button>
       </form>
@@ -91,7 +91,7 @@
               <td>{{ с.предметов }}</td>
               <td class="тише">{{ с.последняя_активность }}</td>
               <td>
-                <form method="post" action="/admin/reset/{{ с.id }}"
+                <form method="post" action="{{ база }}/admin/reset/{{ с.id }}"
                       onsubmit="return confirm('Сбросить {{ с.username }}?')">
                   <button class="бейдж" style="cursor:pointer; border:none">сброс</button>
                 </form>
