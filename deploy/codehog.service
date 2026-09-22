@@ -1,5 +1,5 @@
 [Unit]
-Description=CodeHogwarts — тренажёр Python (maks.my)
+Description=CodeHogwarts — тренажёр Python (maks.my/codehog)
 After=network-online.target
 Wants=network-online.target
 

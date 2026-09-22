@@ -1,4 +1,4 @@
-# Развёртывание CodeHogwarts на maks.my
+# Развёртывание CodeHogwarts на maks.my/codehog
 
 Приложение живёт в `/opt/codehog`, слушает `127.0.0.1:8791`, наружу его отдаёт nginx.
 
