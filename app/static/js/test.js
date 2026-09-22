@@ -59,7 +59,7 @@
     $("пробелы").textContent = д.weak_topics.length
       ? "Обратим внимание на: " + д.weak_topics.join(", ")
       : "Пробелов не нашли — стартуем бодро.";
-    $("кдалее").href = "/register";
+    $("кдалее").href = `${БАЗА}/register`;
 
     const разбор = $("разбор");
     разбор.innerHTML = "";

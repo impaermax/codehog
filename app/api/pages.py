@@ -5,11 +5,10 @@ import secrets
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import контекст_шаблона, текущий_пользователь, токен_гостя
+from app.api.deps import контекст_шаблона, текущий_пользователь, токен_гостя, шаблоны
 from app.config import settings
 from app.database import получить_сессию
 from app.models import Course, Item, Lesson, TestAttempt, User, UserItem, Уровень
@@ -21,16 +20,9 @@ from app.services.prefetch import запустить as подготовить_�
 from app.services.economy import СЕКТОРА, Экономика
 from app.services.i18n import ЯЗЫКИ, выбрать, перевод
 from app.services.testbank import АдаптивныйТест
-from app.services.text import разметка
 
 роутер = APIRouter()
-шаблоны = Jinja2Templates(directory="app/templates")
-# теория приходит от модели с **выделением** — рендерим её безопасным фильтром
-шаблоны.env.filters["разметка"] = разметка
-# Подкаталог приложения. В шаблонах все ссылки строятся как {{ база }}/…,
-# поэтому переезд на /codehog не требует правки разметки.
 БАЗА = settings.base_path
-шаблоны.env.globals["база"] = БАЗА
 
 
 def _контекст(request: Request, юзер: User | None, сессия: Session, **прочее) -> dict:

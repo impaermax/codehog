@@ -3,11 +3,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import контекст_шаблона, текущий_пользователь
+from app.api.deps import контекст_шаблона, текущий_пользователь, шаблоны
 from app.config import settings
 from app.database import получить_сессию
 from app.models import Course, Item, Lesson, User
@@ -15,7 +14,6 @@ from app.services.admin import Админка
 from app.services.economy import Экономика
 
 роутер = APIRouter(prefix="/admin")
-шаблоны = Jinja2Templates(directory="app/templates")
 
 
 class НужнаАвторизация(Exception):
