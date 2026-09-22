@@ -23,7 +23,7 @@ from app.services.seed import засеять_каталог
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 лог = logging.getLogger("codehog")
 
-приложение = FastAPI(title="CodeHog", version=__version__, docs_url="/hog/docs")
+приложение = FastAPI(title="CodeHogwarts", version=__version__, docs_url="/hog/docs")
 приложение.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Версия 2 дизайна — отдаётся как статика рядом с рабочей, чтобы можно было сравнить.
 # Исходники и спецификация лежат в каталоге «верс2».
@@ -59,7 +59,7 @@ def подготовить() -> None:
                 сессия.close()
         finally:
             fcntl.flock(ф, fcntl.LOCK_UN)
-    лог.info("CodeHog %s готов. Предметов добавлено: %s", __version__, добавлено)
+    лог.info("CodeHogwarts %s готов. Предметов добавлено: %s", __version__, добавлено)
     лог.info("Модель курсов: %s (ключ %s)", settings.course_model,
              "задан" if settings.ai_включён else "не задан — работают шаблоны")
 

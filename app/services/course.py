@@ -20,7 +20,7 @@ from app.services.sandbox import Песочница
 лог = logging.getLogger("codehog.course")
 
 СИСТЕМНЫЙ = (
-    "Ты создаёшь один урок Python 3 для тренажёра CodeHog. "
+    "Ты создаёшь один урок Python 3 для тренажёра CodeHogwarts. "
     "Отвечаешь только одним JSON-объектом, без markdown и текста вокруг. "
     "Объяснения по-русски, код и идентификаторы латиницей."
 )

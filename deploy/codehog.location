@@ -1,4 +1,4 @@
-# CodeHog на главной maks.my. Всё остальное (kedr, idealsteklo, diving, /api/ платформы)
+# CodeHogwarts на главной maks.my. Всё остальное (kedr, idealsteklo, diving, /api/ платформы)
 # продолжает работать: у nginx выигрывает самый длинный совпавший префикс,
 # а этот блок ловит только то, что не разобрали остальные.
 location / {

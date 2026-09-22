@@ -30,7 +30,7 @@ import subprocess
 }
 
 ШАПКА = """---
-title: "CodeHog — проектная документация"
+title: "CodeHogwarts — проектная документация"
 subtitle: "Лабораторные работы 2 семестра по дисциплине «Объектно-ориентированное программирование»"
 lang: ru
 toc: true
@@ -74,11 +74,11 @@ def собрать() -> str:
 
 
 def main() -> None:
-    единый = ЗДЕСЬ / "CodeHog-документация.md"
+    единый = ЗДЕСЬ / "CodeHogwarts-документация.md"
     единый.write_text(собрать(), encoding="utf-8")
     print(f"собран {единый.name}: {len(единый.read_text(encoding='utf-8').splitlines())} строк")
 
-    docx = ЗДЕСЬ / "CodeHog-документация.docx"
+    docx = ЗДЕСЬ / "CodeHogwarts-документация.docx"
     итог = subprocess.run(
         ["pandoc", str(единый), "-o", str(docx),
          "--resource-path", str(ЗДЕСЬ), "--toc", "--toc-depth=2"],

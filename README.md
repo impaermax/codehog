@@ -1,4 +1,4 @@
-# CodeHog — Duolingo для Python
+# CodeHogwarts — Duolingo для Python
 
 Тренажёр Python с игровой механикой. Живёт на **https://maks.my**
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Запуск CodeHog в разработке.
+# Запуск CodeHogwarts в разработке.
 set -u
 cd "$(dirname "$0")"
 [ -d .venv ] || python3 -m venv .venv
