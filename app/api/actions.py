@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import текущий_пользователь, токен_гостя
+from app.config import settings
 from app.database import получить_сессию
 from app.models import Item, Lesson, Submission, Task, TestAttempt, User, UserItem, ТипЗадания
 from app.services.ai import ИИНедоступен, КлиентИИ
@@ -81,6 +82,18 @@ def проверить_тест(
     }
 
 
+def _адрес(путь: str) -> str:
+    """Путь из базы -> адрес для браузера.
+
+    В базе ссылки хранятся относительно приложения (/static/...), чтобы не
+    зависеть от того, в каком подкаталоге оно развёрнуто. Префикс BASE_PATH
+    добавляется здесь, при отдаче. Внешние адреса возвращаются как есть.
+    """
+    if путь.startswith(("http://", "https://")) or not путь.startswith("/"):
+        return путь
+    return f"{settings.base_path}{путь}"
+
+
 # --- проверка заданий ---
 
 @роутер.post("/task/{task_id}/check")
@@ -140,7 +153,7 @@ def проверить_задание(
                 {"icon": м.icon, "title": м.title, "description": м.description}
                 for м in новые_медали
             ],
-            "meme": {"url": мем.image_url, "caption": мем.caption} if мем else None,
+            "meme": {"url": _адрес(мем.image_url), "caption": мем.caption} if мем else None,
         }
     сессия.commit()
 
