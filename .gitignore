@@ -15,3 +15,6 @@ skills-lock.json
 
 # служебные файлы macOS
 .DS_Store
+
+# временные файлы блокировки Word
+~$*
