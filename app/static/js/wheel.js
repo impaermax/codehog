@@ -24,10 +24,16 @@
     try {
       const ответ = await fetch(`${БАЗА}/hog/wheel/spin`, { method: "POST" });
       данные = await ответ.json();
-      if (!ответ.ok) throw new Error(данные.detail || "Не получилось");
+      if (!ответ.ok) throw ошибкаОтвета(ответ, данные);
     } catch (e) {
-      итог.textContent = e.message;
+      // кнопку возвращаем, иначе после сбоя колесо не крутится до перезагрузки
       вРаботе = false;
+      крутить.disabled = false;
+      if (ошибкаСвязи(e)) {
+        показатьОшибку(текстОшибки(e), () => крутить.click());
+      } else {
+        итог.textContent = e.message;
+      }
       return;
     }
 

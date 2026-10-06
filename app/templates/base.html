@@ -57,10 +57,13 @@
   {% block содержимое %}{% endblock %}
 
   <footer class="центр">
-    CodeHogwarts · тренажёр Python
+    CodeHogwarts · тренажёр Python · 14+<br>
+    <a href="{{ база }}/terms">Пользовательское соглашение</a>
+    <a href="{{ база }}/privacy">Политика конфиденциальности</a>
   </footer>
 </div>
 <script>window.БАЗА = "{{ база }}";</script>
+<script src="{{ база }}/static/js/ошибки.js"></script>
 {% block скрипты %}{% endblock %}
 </body>
 </html>

@@ -742,3 +742,45 @@ footer { padding: 40px 0 28px; color: var(--текст-3); font-size: 14px; }
   }
   .колесо { transition: none; }
 }
+
+/* ═══ Окно ошибки ═══ */
+
+.тост {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: calc(100% - 32px);
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  background: var(--ошибка-фон);
+  border: 1px solid var(--ошибка);
+  border-radius: var(--р-панель);
+  box-shadow: var(--тень-меню);
+  color: var(--текст);
+  font-size: 15px;
+}
+.тост span { flex: 1; }
+.тост .кнопка { min-height: 36px; padding: 8px 14px; font-size: 14px; }
+.тост-закрыть {
+  background: none; border: 0; color: var(--текст-2);
+  font-size: 16px; cursor: pointer; padding: 6px;
+}
+
+/* ═══ Текстовые страницы: соглашение, политика ═══ */
+
+.документ { padding: 32px 20px 48px; }
+.документ h2 { font-size: 20px; line-height: 26px; margin-top: 28px; }
+.документ p, .документ li { color: var(--текст-2); line-height: 26px; }
+.документ ul { padding-left: 20px; }
+.документ table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+.документ th { text-align: left; color: var(--текст); border-bottom: 1px solid var(--граница-контрол); padding: 8px; }
+.документ td { color: var(--текст-2); border-bottom: 1px solid var(--граница); padding: 8px; vertical-align: top; }
+
+/* ссылки в подвале */
+footer a { color: var(--текст-3); margin: 0 6px; }
+footer a:hover { color: var(--текст-2); }

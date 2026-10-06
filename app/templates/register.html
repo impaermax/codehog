@@ -19,7 +19,12 @@
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" required minlength="6"
              placeholder="минимум 6 символов" autocomplete="new-password">
-      <button class="кнопка большая" type="submit" style="width:100%">Начать курс →</button>
+      <p class="тише" style="margin:14px 0 0">
+        Сервис для тех, кому уже есть 14. Нажимая кнопку, ты принимаешь
+        <a href="{{ база }}/terms" target="_blank">Пользовательское соглашение</a> и
+        <a href="{{ база }}/privacy" target="_blank">Политику конфиденциальности</a>.
+      </p>
+      <button class="кнопка большая" type="submit" style="width:100%; margin-top:14px">Начать курс →</button>
     </form>
     <p class="тише центр" style="margin-bottom:0">Уже есть аккаунт? <a href="{{ база }}/login">Войти</a></p>
   </div>
