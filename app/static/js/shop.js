@@ -10,11 +10,15 @@
       try {
         const ответ = await fetch(адрес, { method: "POST" });
         const д = await ответ.json();
-        if (!ответ.ok) throw new Error(д.detail || "Не получилось");
+        if (!ответ.ok) throw ошибкаОтвета(ответ, д);
         location.reload();
       } catch (e) {
-        сообщение.textContent = e.message;
         кнопка.disabled = false;
+        if (ошибкаСвязи(e)) {
+          показатьОшибку(текстОшибки(e), () => действие(адрес, кнопка));
+        } else {
+          сообщение.textContent = e.message;   // «не хватает монет» и подобное
+        }
       }
     };
 

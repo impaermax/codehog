@@ -2,7 +2,21 @@
 {% block заголовок %}Тест на уровень — CodeHogwarts{% endblock %}
 {% block содержимое %}
 <div class="обёртка узкая" style="padding:40px 0">
-  <div id="ход">
+  {# Вопрос перед тестом: кто никогда не программировал, тест не проходит,
+     а сразу получает курс с нулевого модуля #}
+  <div id="опыт">
+    <div class="карта">
+      <h2 style="margin-top:0">Ты уже программировал?</h2>
+      <p class="тише">От ответа зависит, с чего начнётся твой курс.</p>
+      <div class="варианты">
+        <button class="вариант" data-опыт="none">Никогда — хочу начать с самого начала</button>
+        <button class="вариант" data-опыт="other">Да, но на другом языке</button>
+        <button class="вариант" data-опыт="python">Да, уже пишу на Python</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ход" style="display:none">
     <div class="тише" id="счётчик">Вопрос 1</div>
     <div class="полоса"><i id="полоса" style="width:0%"></i></div>
     <div class="карта">
@@ -24,7 +38,7 @@
       <div id="пробелы" class="тише" style="margin:14px 0"></div>
       <a class="кнопка большая" id="кдалее" href="{{ база }}/register">Сохранить результат и начать</a>
     </div>
-    <div class="карта" style="margin-top:16px">
+    <div class="карта" id="карта-разбора" style="margin-top:16px">
       <h3 style="margin-top:0">Разбор ответов</h3>
       <div id="разбор"></div>
     </div>
