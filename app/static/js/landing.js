@@ -1,30 +1,28 @@
-// На мобильном показываем ступени по очереди: три видео рядом там не помещаются.
+// On mobile the showcase items are shown one at a time: three side by side do not fit.
 (() => {
-  const витрина = document.getElementById("витрина");
-  if (!витрина) return;
-  const ступени = [...витрина.querySelectorAll(".ступень")];
-  if (ступени.length < 2) return;
+  const showcase = document.getElementById("showcase");
+  if (!showcase) return;
+  const items = [...showcase.querySelectorAll(".showcase-item")];
+  if (items.length < 2) return;
 
-  const точки = document.createElement("div");
-  точки.className = "точки";
-  ступени.forEach(() => точки.appendChild(document.createElement("i")));
-  витрина.after(точки);
+  const dots = document.createElement("div");
+  dots.className = "dots";
+  items.forEach(() => dots.appendChild(document.createElement("i")));
+  showcase.after(dots);
 
-  let текущая = 0;
-  const мобильный = () => window.matchMedia("(max-width: 860px)").matches;
+  let current = 0;
+  const isMobile = () => window.matchMedia("(max-width: 860px)").matches;
 
-  function показать(индекс) {
-    текущая = (индекс + ступени.length) % ступени.length;
-    ступени.forEach((э, i) => э.classList.toggle("активна", i === текущая));
-    [...точки.children].forEach((т, i) => т.classList.toggle("активна", i === текущая));
-    const видео = ступени[текущая].querySelector("video");
-    if (видео && видео.paused) видео.play().catch(() => {});
+  function show(index) {
+    current = (index + items.length) % items.length;
+    items.forEach((item, i) => item.classList.toggle("active", i === current));
+    [...dots.children].forEach((dot, i) => dot.classList.toggle("active", i === current));
   }
 
-  показать(0);
-  setInterval(() => { if (мобильный()) показать(текущая + 1); }, 4200);
-  точки.onclick = (e) => {
-    const i = [...точки.children].indexOf(e.target);
-    if (i >= 0) показать(i);
+  show(0);
+  setInterval(() => { if (isMobile()) show(current + 1); }, 4200);
+  dots.onclick = (event) => {
+    const index = [...dots.children].indexOf(event.target);
+    if (index >= 0) show(index);
   };
 })();

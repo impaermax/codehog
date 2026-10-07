@@ -1,10 +1,11 @@
-"""Сборка персонального курса и наполнение уроков заданиями.
+"""Building a personal course and filling lessons with tasks.
 
-Каркас курса — наш, проверенный. Модель наполняет один урок за вызов и обязана
-вернуть строгий JSON. Всё, что она вернула, проверяется: структура, типы заданий
-и, для задач на код, реальный прогон эталонного решения в песочнице.
-Не прошло проверку — берётся шаблонный урок, и человек ничего не теряет.
+The course skeleton is ours and vetted. The model fills one lesson per call
+and must return strict JSON. Everything it returns is validated: structure,
+task types and, for code tasks, an actual run of the reference solution in
+the sandbox. If validation fails, a fallback lesson is used instead.
 """
+
 from __future__ import annotations
 
 import logging
@@ -13,322 +14,349 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Course, Lesson, Module, Submission, Task, User, Уровень, ТипЗадания
-from app.services.ai import ИИНедоступен, КлиентИИ
-from app.services.curriculum import МодульКурса, ТемаУрока, каркас, все_модули
-from app.services.ready_lessons import ГОТОВЫЕ_УРОКИ
-from app.services.sandbox import Песочница
+from app.models import Course, Lesson, Level, Module, Submission, Task, TaskKind, User
+from app.services.ai import AIClient, AIUnavailableError
+from app.services.curriculum import LessonTopic, all_modules, skeleton
+from app.services.ready_lessons import READY_LESSONS
+from app.services.sandbox import Sandbox
 
-лог = logging.getLogger("codehog.course")
+logger = logging.getLogger("codehog.course")
 
-СИСТЕМНЫЙ = (
-    "Ты создаёшь один урок Python 3 для тренажёра CodeHogwarts. "
-    "Отвечаешь только одним JSON-объектом, без markdown и текста вокруг. "
-    "Объяснения по-русски, код и идентификаторы латиницей."
+SYSTEM_PROMPT = (
+    "You create one Python 3 lesson for the CodeHogwarts trainer. "
+    "Reply with a single JSON object only, without markdown or any text around it. "
+    "Write all explanations in Russian; code and identifiers in English."
 )
 
-ШАБЛОН_ЗАПРОСА = """Собери один урок по теме «{тема}».
+PROMPT_TEMPLATE = """Create one lesson on the topic "{topic}".
 
-Учебная цель: {цель}
-Уровень ученика: {уровень}
-Разрешённые понятия: {понятия}
-Слабые места ученика: {слабые}
+Learning goal: {goal}
+Learner level: {level}
+Allowed concepts: {concepts}
+Learner's weak spots: {weak}
 
-ПРАВИЛА
-1. Ровно 3 задания: сначала predict (что выведет код), затем quiz (выбор),
-   затем code (написать функцию solve). Именно в этом порядке.
-2. Не используй импорты, input, eval, exec, файлы, сеть и случайность.
-3. В задании code функция обязана называться solve.
-4. tests — ровно 3 проверки вида {{"call": "solve(...)", "expect": значение}}.
-   В expect только числа, строки, булевы значения, null и списки из них.
-5. reference_solution обязано проходить все свои tests.
-5а. В КОДЕ пиши Python-литералы: True, False, None.
-    JSON-овские true, false, null внутри кода — ошибка, код не запустится.
-6. theory — до 600 символов, по-русски, с одним коротким примером кода.
+RULES
+1. Exactly 3 tasks, in this order: predict (what the code prints), quiz (pick an
+   option), code (write a function named solve).
+2. Do not use imports, input, eval, exec, files, network or randomness.
+3. In the code task the function must be called solve.
+4. tests: exactly 3 checks of the form {{"call": "solve(...)", "expect": value}}.
+   expect may only hold numbers, strings, booleans, null and lists of them.
+5. reference_solution must pass all of its tests.
+6. Inside CODE use Python literals True, False, None. JSON true, false, null
+   inside code is an error: the code will not run.
+7. theory: up to 600 characters, in Russian, with one short code example.
 
-ФОРМАТ ОТВЕТА
+RESPONSE FORMAT
 {{
-  "title": "Короткое название урока",
-  "theory": "Объяснение",
+  "title": "Short lesson title",
+  "theory": "Explanation",
   "tasks": [
     {{"type": "predict", "prompt": "Что выведет код?", "code": "...",
-      "answer": "точный вывод", "hint": "подсказка", "explanation": "почему"}},
-    {{"type": "quiz", "prompt": "Вопрос", "code": "",
-      "options": ["a", "b", "c", "d"], "answer": "правильный вариант целиком",
-      "hint": "подсказка", "explanation": "почему"}},
-    {{"type": "code", "prompt": "Что нужно написать", "starter_code": "def solve(...):\\n    ...",
+      "answer": "exact output", "hint": "hint", "explanation": "why"}},
+    {{"type": "quiz", "prompt": "Question", "code": "",
+      "options": ["a", "b", "c", "d"], "answer": "the full correct option",
+      "hint": "hint", "explanation": "why"}},
+    {{"type": "code", "prompt": "What to write", "starter_code": "def solve(...):\\n    ...",
       "reference_solution": "def solve(...):\\n    return ...",
       "tests": [{{"call": "solve(1)", "expect": 1}}],
-      "hint": "подсказка", "explanation": "разбор"}}
+      "hint": "hint", "explanation": "walkthrough"}}
   ]
 }}"""
 
-
-class ПроверкаУрока:
-    """Валидация того, что вернула модель. Молча ничего не чиним — отбраковываем."""
-
-    ТИПЫ = {"predict": ТипЗадания.ВЫВОД, "quiz": ТипЗадания.ВЫБОР, "code": ТипЗадания.КОД}
-
-    def __init__(self) -> None:
-        self.песочница = Песочница(таймаут=5.0)
-
-    def проверить(self, данные: dict) -> tuple[bool, str]:
-        if not isinstance(данные, dict):
-            return False, "ответ не объект"
-        if not str(данные.get("title", "")).strip():
-            return False, "нет заголовка"
-        задания = данные.get("tasks")
-        if not isinstance(задания, list) or len(задания) < 2:
-            return False, "нужно минимум два задания"
-
-        for i, з in enumerate(задания, 1):
-            if not isinstance(з, dict):
-                return False, f"задание {i} не объект"
-            тип = з.get("type")
-            if тип not in self.ТИПЫ:
-                return False, f"задание {i}: неизвестный тип {тип!r}"
-            if not str(з.get("prompt", "")).strip():
-                return False, f"задание {i}: пустая формулировка"
-            if тип == "quiz":
-                варианты = з.get("options") or []
-                if len(варианты) < 2:
-                    return False, f"задание {i}: мало вариантов"
-                if з.get("answer") not in варианты:
-                    return False, f"задание {i}: правильного варианта нет в списке"
-            if тип == "predict" and not str(з.get("code", "")).strip():
-                return False, f"задание {i}: нет кода"
-            if тип == "code":
-                ок, почему = self._проверить_код(з)
-                if not ок:
-                    return False, f"задание {i}: {почему}"
-        return True, ""
-
-    def _проверить_код(self, задание: dict) -> tuple[bool, str]:
-        эталон = str(задание.get("reference_solution", "")).strip()
-        тесты = задание.get("tests") or []
-        if not эталон:
-            return False, "нет эталонного решения"
-        if not isinstance(тесты, list) or not тесты:
-            return False, "нет тестов"
-        for т in тесты:
-            if not isinstance(т, dict) or "call" not in т or "expect" not in т:
-                return False, "тест неверного формата"
-        результат = self.песочница.запустить(эталон, тесты)
-        if not результат.passed:
-            return False, f"эталон не проходит свои тесты ({результат.сводка})"
-        return True, ""
-
-
-# Первая фраза описания курса, если перед ним стоит вводный модуль
-ВСТУПЛЕНИЕ_КУРСА = {
+# The opening of the course summary when an intro module comes first
+COURSE_INTROS = {
     "none": "Начнём с самого начала: что такое программа, первая команда print "
-            "и как читать ошибки. Дальше — ",
+    "и как читать ошибки. Дальше — ",
     "other": "Сначала переложим знакомые конструкции на синтаксис Python: отступы, "
-             "переменные без типов, циклы по коллекциям. Дальше — ",
+    "переменные без типов, циклы по коллекциям. Дальше — ",
+}
+
+LEVEL_SUMMARIES = {
+    Level.BEGINNER: "Начинаем с самых основ: переменные, условия, циклы и первые функции.",
+    Level.INTERMEDIATE: "Базу вы знаете. Разберём коллекции, изменяемость, ошибки и классы.",
+    Level.ADVANCED: "Идём вглубь языка: замыкания, генераторы, декораторы и сложность.",
 }
 
 
-class ГенераторКурса:
-    """Создаёт курс по каркасу и наполняет уроки — моделью или шаблоном."""
+class LessonValidator:
+    """Validates what the model returned. Nothing is silently fixed: bad lessons are rejected."""
 
-    def __init__(self, сессия: Session, клиент: КлиентИИ | None = None) -> None:
-        self.сессия = сессия
-        self.клиент = клиент or КлиентИИ()
-        self.проверка = ПроверкаУрока()
+    TYPES = {"predict": TaskKind.PREDICT, "quiz": TaskKind.QUIZ, "code": TaskKind.CODE}
 
-    def создать(self, юзер: User, слабые_темы: list[str] | None = None,
-                опыт: str = "") -> Course:
-        """Строит структуру курса. Задания появляются при открытии урока.
+    def __init__(self) -> None:
+        self.sandbox = Sandbox(timeout=5.0)
 
-        опыт — ответ на вопрос перед тестом. "none" ставит перед курсом
-        нулевой модуль с бытовыми примерами, "other" — модуль перехода
-        с другого языка на синтаксис Python.
+    def check(self, data: dict) -> tuple[bool, str]:
+        """(True, "") if the lesson is usable, otherwise (False, reason)."""
+        if not isinstance(data, dict):
+            return False, "reply is not an object"
+        if not str(data.get("title", "")).strip():
+            return False, "no title"
+        tasks = data.get("tasks")
+        if not isinstance(tasks, list) or len(tasks) < 2:
+            return False, "at least two tasks are required"
+
+        for number, task in enumerate(tasks, 1):
+            if not isinstance(task, dict):
+                return False, f"task {number} is not an object"
+            kind = task.get("type")
+            if kind not in self.TYPES:
+                return False, f"task {number}: unknown type {kind!r}"
+            if not str(task.get("prompt", "")).strip():
+                return False, f"task {number}: empty prompt"
+            if kind == "quiz":
+                options = task.get("options") or []
+                if len(options) < 2:
+                    return False, f"task {number}: too few options"
+                if task.get("answer") not in options:
+                    return False, f"task {number}: the correct option is not in the list"
+            if kind == "predict" and not str(task.get("code", "")).strip():
+                return False, f"task {number}: no code"
+            if kind == "code":
+                ok, reason = self._check_code(task)
+                if not ok:
+                    return False, f"task {number}: {reason}"
+        return True, ""
+
+    def _check_code(self, task: dict) -> tuple[bool, str]:
+        reference = str(task.get("reference_solution", "")).strip()
+        tests = task.get("tests") or []
+        if not reference:
+            return False, "no reference solution"
+        if not isinstance(tests, list) or not tests:
+            return False, "no tests"
+        for test in tests:
+            if not isinstance(test, dict) or "call" not in test or "expect" not in test:
+                return False, "malformed test"
+        result = self.sandbox.run(reference, tests)
+        if not result.passed:
+            return False, f"reference solution fails its own tests ({result.summary})"
+        return True, ""
+
+
+class CourseGenerator:
+    """Builds a course from the skeleton and fills its lessons.
+
+    Tasks come from a ready lesson, the model or the fallback template.
+    """
+
+    def __init__(self, session: Session, client: AIClient | None = None) -> None:
+        self.session = session
+        self.client = client or AIClient()
+        self.validator = LessonValidator()
+
+    def create(
+        self, user: User, weak_topics: list[str] | None = None, experience: str = ""
+    ) -> Course:
+        """Build the course structure. Tasks appear when a lesson is opened.
+
+        experience is the answer given before the test: "none" puts the
+        intro module with everyday examples first, "other" puts the module
+        for switching to Python from another language first.
         """
-        структура = каркас(юзер.level, опыт)
-        курс = Course(
-            user_id=юзер.id,
-            title=f"Python: маршрут «{юзер.level.подпись}»",
-            summary=self._с_вступлением(ВСТУПЛЕНИЕ_КУРСА.get(опыт, ""),
-                                        self._описание(юзер.level, слабые_темы or [])),
-            level=юзер.level,
+        modules = skeleton(user.level, experience)
+        course = Course(
+            user_id=user.id,
+            title=f"Python: маршрут «{user.level.label}»",
+            summary=self._with_intro(
+                COURSE_INTROS.get(experience, ""), self._describe(user.level, weak_topics or [])
+            ),
+            level=user.level,
             generated_by="skeleton",
         )
-        self.сессия.add(курс)
-        self.сессия.flush()
+        self.session.add(course)
+        self.session.flush()
 
-        for i, модуль in enumerate(структура):
-            м = Module(course_id=курс.id, order_index=i, title=модуль.название,
-                       description=модуль.описание)
-            self.сессия.add(м)
-            self.сессия.flush()
-            for j, тема in enumerate(модуль.уроки):
-                self.сессия.add(Lesson(
-                    module_id=м.id, order_index=j, title=тема.название,
-                    theory="", xp_reward=20, coin_reward=10,
-                ))
-        self.сессия.commit()
+        for module_index, module in enumerate(modules):
+            module_row = Module(
+                course_id=course.id,
+                order_index=module_index,
+                title=module.title,
+                description=module.description,
+            )
+            self.session.add(module_row)
+            self.session.flush()
+            for lesson_index, topic in enumerate(module.lessons):
+                self.session.add(
+                    Lesson(
+                        module_id=module_row.id,
+                        order_index=lesson_index,
+                        title=topic.title,
+                        theory="",
+                        xp_reward=20,
+                        coin_reward=10,
+                    )
+                )
+        self.session.commit()
 
-        # первый урок наполняем прямо сейчас: старт должен быть мгновенным,
-        # а генерация моделью занимает до 25 секунд. Для всех возможных первых
-        # уроков есть готовые, написанные вручную (ready_lessons.py)
-        первый = курс.все_уроки[0] if курс.все_уроки else None
-        if первый is not None and not первый.tasks:
-            тема = self._тема_урока(первый, юзер.level)
-            данные = ГОТОВЫЕ_УРОКИ.get(тема.название) or запасной_урок(тема, юзер.level)
-            первый.theory = данные["theory"]
-            for i, з in enumerate(данные["tasks"]):
-                первый.tasks.append(self._собрать_задание(з, i))
-            self.сессия.commit()
-        return курс
+        # The first lesson is filled right away: the start must be instant, while
+        # generation takes up to 25 seconds. Every possible first lesson has a
+        # hand-written version in ready_lessons.py.
+        first = course.all_lessons[0] if course.all_lessons else None
+        if first is not None and not first.tasks:
+            topic = self._lesson_topic(first, user.level)
+            data = READY_LESSONS.get(topic.title) or fallback_lesson(topic)
+            first.theory = data["theory"]
+            for index, raw in enumerate(data["tasks"]):
+                first.tasks.append(self._build_task(raw, index))
+            self.session.commit()
+        return course
 
     @staticmethod
-    def _с_вступлением(вступление: str, описание: str) -> str:
-        """«…Дальше — » + «Начинаем с основ» → «…Дальше — начинаем с основ»."""
-        if not вступление or not описание:
-            return вступление + описание
-        return вступление + описание[0].lower() + описание[1:]
+    def _with_intro(intro: str, description: str) -> str:
+        """Join the intro and the level summary, lowercasing the summary's first letter."""
+        if not intro or not description:
+            return intro + description
+        return intro + description[0].lower() + description[1:]
 
     @staticmethod
-    def _описание(уровень: Уровень, слабые: list[str]) -> str:
-        основа = {
-            Уровень.НОВИЧОК: "Начинаем с самых основ: переменные, условия, циклы и первые функции.",
-            Уровень.СРЕДНИЙ: "Базу вы знаете. Разберём коллекции, изменяемость, ошибки и классы.",
-            Уровень.ПРОДВИНУТЫЙ: "Идём вглубь языка: замыкания, генераторы, декораторы и сложность.",
-        }[уровень]
-        if слабые:
-            основа += f" Отдельное внимание темам: {', '.join(слабые)}."
-        return основа
+    def _describe(level: Level, weak_topics: list[str]) -> str:
+        summary = LEVEL_SUMMARIES[level]
+        if weak_topics:
+            summary += f" Отдельное внимание темам: {', '.join(weak_topics)}."
+        return summary
 
-    def наполнить_урок(self, урок: Lesson, юзер: User, слабые: list[str] | None = None) -> Lesson:
-        """Создаёт задания урока. Идемпотентно и устойчиво к гонке двух процессов."""
-        if урок.tasks:
-            return урок
+    def fill_lesson(
+        self, lesson: Lesson, user: User, weak_topics: list[str] | None = None
+    ) -> Lesson:
+        """Create the lesson's tasks. Idempotent and safe against two processes racing."""
+        if lesson.tasks:
+            return lesson
 
-        тема = self._тема_урока(урок, юзер.level)
-        данные, источник = None, "template"
+        topic = self._lesson_topic(lesson, user.level)
+        data, source = None, "fallback"
 
-        # готовый урок важнее сгенерированного: он выверен вручную
-        if тема.название in ГОТОВЫЕ_УРОКИ:
-            данные, источник = ГОТОВЫЕ_УРОКИ[тема.название], "ready"
-        elif self.клиент.доступен:
+        # A ready lesson beats a generated one: it was written and checked by hand.
+        if topic.title in READY_LESSONS:
+            data, source = READY_LESSONS[topic.title], "ready"
+        elif self.client.available:
             try:
-                данные = self._спросить_модель(тема, юзер.level, слабые or [])
-                источник = self.клиент and "ai"
-            except (ИИНедоступен, Exception) as e:
-                лог.warning("урок %s: модель не дала результат (%s)", урок.id, str(e)[:120])
-                данные = None
+                data = self._ask_model(topic, user.level, weak_topics or [])
+                source = "ai"
+            except Exception as e:
+                logger.warning("lesson %s: the model gave no result (%s)", lesson.id, str(e)[:120])
+                data = None
 
-        if данные is None:
-            данные = запасной_урок(тема, юзер.level)
-            источник = "template"
+        if data is None:
+            data = fallback_lesson(topic)
+            source = "fallback"
 
-        # пока мы ходили к модели, урок мог наполнить другой процесс
-        self.сессия.refresh(урок)
-        if урок.tasks:
-            лог.info("урок %s уже наполнен другим процессом — пропускаю", урок.id)
-            return урок
+        # While we were waiting for the model, another process may have filled the lesson.
+        self.session.refresh(lesson)
+        if lesson.tasks:
+            logger.info("lesson %s was filled by another process, skipping", lesson.id)
+            return lesson
 
-        урок.title = данные.get("title") or урок.title
-        урок.theory = данные.get("theory", "")
-        for i, з in enumerate(данные.get("tasks", [])):
-            урок.tasks.append(self._собрать_задание(з, i))
+        lesson.title = data.get("title") or lesson.title
+        lesson.theory = data.get("theory", "")
+        for index, raw in enumerate(data.get("tasks", [])):
+            lesson.tasks.append(self._build_task(raw, index))
         try:
-            self.сессия.commit()
+            self.session.commit()
         except IntegrityError:
-            # уникальный индекс не дал задвоить — значит, кто-то успел раньше
-            self.сессия.rollback()
-            self.сессия.refresh(урок)
-            лог.info("урок %s наполнен параллельно, свою копию отбросил", урок.id)
-            return урок
-        лог.info("урок %s наполнен (%s), заданий: %s", урок.id, источник, len(урок.tasks))
-        return урок
+            # The unique index prevented duplicates: someone else was faster.
+            self.session.rollback()
+            self.session.refresh(lesson)
+            logger.info("lesson %s was filled in parallel, dropped our copy", lesson.id)
+            return lesson
+        logger.info("lesson %s filled (%s), tasks: %s", lesson.id, source, len(lesson.tasks))
+        return lesson
 
-    def _спросить_модель(self, тема: ТемаУрока, уровень: Уровень, слабые: list[str]) -> dict | None:
-        запрос = ШАБЛОН_ЗАПРОСА.format(
-            тема=тема.название, цель=тема.цель, уровень=уровень.подпись,
-            понятия=", ".join(тема.понятия),
-            слабые=", ".join(слабые) if слабые else "не выявлены",
+    def _ask_model(self, topic: LessonTopic, level: Level, weak_topics: list[str]) -> dict | None:
+        prompt = PROMPT_TEMPLATE.format(
+            topic=topic.title,
+            goal=topic.goal,
+            level=level.label,
+            concepts=", ".join(topic.concepts),
+            weak=", ".join(weak_topics) if weak_topics else "none found",
         )
-        for попытка in (1, 2):
-            ответ = self.клиент.спросить(СИСТЕМНЫЙ, запрос, максимум_токенов=2500, температура=0.3)
+        for attempt in (1, 2):
+            reply = self.client.ask(SYSTEM_PROMPT, prompt, max_tokens=2500, temperature=0.3)
             try:
-                данные = self.клиент.достать_json(ответ.текст)
-            except ИИНедоступен as e:
-                лог.warning("попытка %s: %s", попытка, e)
+                data = self.client.extract_json(reply.text)
+            except AIUnavailableError as e:
+                logger.warning("attempt %s: %s", attempt, e)
                 continue
-            ок, почему = self.проверка.проверить(данные)
-            if ок:
-                return данные
-            лог.warning("попытка %s отбракована: %s", попытка, почему)
+            ok, reason = self.validator.check(data)
+            if ok:
+                return data
+            logger.warning("attempt %s rejected: %s", attempt, reason)
         return None
 
     @staticmethod
-    def _собрать_задание(сырое: dict, порядок: int) -> Task:
-        тип = ПроверкаУрока.ТИПЫ.get(сырое.get("type"), ТипЗадания.ВЫВОД)
-        задание = Task(
-            order_index=порядок, kind=тип,
-            prompt=сырое.get("prompt", ""), hint=сырое.get("hint", ""),
-            starter_code=сырое.get("starter_code", "") or сырое.get("code", ""),
-            solution=сырое.get("reference_solution", "") or сырое.get("explanation", ""),
-            answer=str(сырое.get("answer", "")),
+    def _build_task(raw: dict, order: int) -> Task:
+        kind = LessonValidator.TYPES.get(raw.get("type"), TaskKind.PREDICT)
+        task = Task(
+            order_index=order,
+            kind=kind,
+            prompt=raw.get("prompt", ""),
+            hint=raw.get("hint", ""),
+            starter_code=raw.get("starter_code", "") or raw.get("code", ""),
+            solution=raw.get("reference_solution", "") or raw.get("explanation", ""),
+            answer=str(raw.get("answer", "")),
         )
-        if тип == ТипЗадания.КОД:
-            задание.проверки = сырое.get("tests", [])
-        if тип == ТипЗадания.ВЫБОР:
-            задание.варианты = сырое.get("options", [])
-        return задание
+        if kind == TaskKind.CODE:
+            task.checks = raw.get("tests", [])
+        if kind == TaskKind.QUIZ:
+            task.options = raw.get("options", [])
+        return task
 
     @staticmethod
-    def _тема_урока(урок: Lesson, уровень: Уровень) -> ТемаУрока:
-        # Сначала ищем модуль по названию. По номеру нельзя: у курса с вводным
-        # модулем он идёт первым, и все номера сдвинуты на один.
-        for модуль in все_модули(уровень):
-            if модуль.название == урок.module.title and урок.order_index < len(модуль.уроки):
-                return модуль.уроки[урок.order_index]
-        # запасной путь для курсов, собранных до появления нулевого модуля
-        структура = каркас(уровень)
-        индекс_модуля = урок.module.order_index
-        if индекс_модуля < len(структура):
-            модуль: МодульКурса = структура[индекс_модуля]
-            if урок.order_index < len(модуль.уроки):
-                return модуль.уроки[урок.order_index]
-        return ТемаУрока(урок.title, урок.title, ("python",))
+    def _lesson_topic(lesson: Lesson, level: Level) -> LessonTopic:
+        # Look the module up by title first. The index does not work: in a
+        # course with an intro module that module comes first and shifts the rest.
+        for module in all_modules(level):
+            if module.title == lesson.module.title and lesson.order_index < len(module.lessons):
+                return module.lessons[lesson.order_index]
+        # Fallback for courses built before intro modules existed
+        modules = skeleton(level)
+        module_index = lesson.module.order_index
+        if module_index < len(modules) and lesson.order_index < len(modules[module_index].lessons):
+            return modules[module_index].lessons[lesson.order_index]
+        return LessonTopic(lesson.title, lesson.title, ("python",))
 
 
-# Задача на код из старого общего шаблона. По ней узнаём уроки, собранные
-# до появления готовых уроков: задания там не по теме урока.
-_СТАРЫЙ_ШАБЛОН = "Напишите функцию solve(numbers), которая вернёт сумму чётных чисел списка."
+# The code task of the old generic template. It identifies lessons built before
+# ready lessons existed: their tasks have nothing to do with the lesson topic.
+_OLD_TEMPLATE_PROMPT = "Напишите функцию solve(numbers), которая вернёт сумму чётных чисел списка."
 
 
-def перезаполнить_шаблонные(сессия: Session) -> int:
-    """Очищает незавершённые уроки со старыми шаблонными заданиями.
+def reset_template_lessons(session: Session) -> int:
+    """Clear unfinished lessons that still hold the old generic tasks.
 
-    Урок без заданий наполняется заново при открытии: готовым уроком,
-    если он есть, иначе моделью. Пройденные уроки не трогаем — это история
-    ученика. Повторный вызов безопасен.
+    A lesson without tasks is filled again when opened: with a ready lesson
+    if there is one, otherwise by the model. Completed lessons are left alone,
+    they are the learner's history. Safe to call repeatedly.
     """
-    уроки = сессия.scalars(
-        select(Lesson).join(Task).where(Lesson.is_completed.is_(False), Task.prompt == _СТАРЫЙ_ШАБЛОН)
-    ).unique().all()
-    for урок in уроки:
-        номера = [з.id for з in урок.tasks]
-        сессия.execute(delete(Submission).where(Submission.task_id.in_(номера)))
-        урок.tasks.clear()
-        урок.theory = ""
-    сессия.commit()
-    return len(уроки)
+    lessons = (
+        session.scalars(
+            select(Lesson)
+            .join(Task)
+            .where(Lesson.is_completed.is_(False), Task.prompt == _OLD_TEMPLATE_PROMPT)
+        )
+        .unique()
+        .all()
+    )
+    for lesson in lessons:
+        task_ids = [task.id for task in lesson.tasks]
+        session.execute(delete(Submission).where(Submission.task_id.in_(task_ids)))
+        lesson.tasks.clear()
+        lesson.theory = ""
+    session.commit()
+    return len(lessons)
 
 
-def запасной_урок(тема: ТемаУрока, уровень: Уровень) -> dict:
-    """Гарантированно рабочий урок на случай, когда модель недоступна."""
-    # цель в каркасе пишется и для модели, после первой фразы там бывают
-    # указания ей («объяснять без терминов») — ученику они ни к чему
-    цель = тема.цель.split(". ")[0].rstrip(".")
+def fallback_lesson(topic: LessonTopic) -> dict:
+    """A lesson that always works, for when the model is unavailable."""
+    # The skeleton goal is also written for the model, so after the first
+    # sentence it may contain instructions for it. The learner does not need them.
+    goal = topic.goal.split(". ")[0].rstrip(".")
     return {
-        "title": тема.название,
+        "title": topic.title,
         "theory": (
-            f"**{тема.название}.** {цель}.\n\n"
-            f"Ключевые понятия: {', '.join(тема.понятия)}.\n\n"
+            f"**{topic.title}.** {goal}.\n\n"
+            f"Ключевые понятия: {', '.join(topic.concepts)}.\n\n"
             "Разберите пример ниже и решите задание — этого достаточно, "
             "чтобы двинуться дальше."
         ),
@@ -352,9 +380,11 @@ def запасной_урок(тема: ТемаУрока, уровень: Ур
             },
             {
                 "type": "code",
-                "prompt": "Напишите функцию solve(numbers), которая вернёт сумму чётных чисел списка.",
+                "prompt": _OLD_TEMPLATE_PROMPT,
                 "starter_code": "def solve(numbers):\n    # ваш код\n    return 0",
-                "reference_solution": "def solve(numbers):\n    return sum(n for n in numbers if n % 2 == 0)",
+                "reference_solution": (
+                    "def solve(numbers):\n    return sum(n for n in numbers if n % 2 == 0)"
+                ),
                 "tests": [
                     {"call": "solve([1, 2, 3, 4])", "expect": 6},
                     {"call": "solve([])", "expect": 0},

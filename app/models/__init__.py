@@ -1,23 +1,35 @@
-"""Все модели в одном месте, чтобы metadata знала о каждой таблице."""
+"""All models in one place, so the metadata knows about every table."""
+
 from app.models.admin import BonusGrant
-from app.models.base import Base, ВременнЫеМетки, сейчас
-from app.models.game import Item, Слот, UserItem, WheelSpin
-from app.models.reward import Achievement, Meme, UserAchievement, ТипУсловия
-from app.models.learning import (
-    Course,
-    Lesson,
-    Module,
-    Submission,
-    Task,
-    TestAttempt,
-    ТипЗадания,
-)
-from app.models.user import CoinTransaction, DailyActivity, ПричинаМонет, Уровень, User
+from app.models.base import Base, TimestampMixin, utc_now
+from app.models.game import Item, Slot, UserItem, WheelSpin
+from app.models.learning import Course, Lesson, Module, Submission, Task, TaskKind, TestAttempt
+from app.models.reward import Achievement, ConditionType, Meme, UserAchievement
+from app.models.user import CoinReason, CoinTransaction, DailyActivity, Level, User
 
 __all__ = [
-    "Base", "ВременнЫеМетки", "сейчас",
-    "User", "DailyActivity", "CoinTransaction", "Уровень", "ПричинаМонет",
-    "TestAttempt", "Course", "Module", "Lesson", "Task", "Submission", "ТипЗадания",
-    "Item", "UserItem", "WheelSpin", "Слот", "BonusGrant",
-    "Achievement", "UserAchievement", "Meme", "ТипУсловия",
+    "Base",
+    "TimestampMixin",
+    "utc_now",
+    "User",
+    "DailyActivity",
+    "CoinTransaction",
+    "Level",
+    "CoinReason",
+    "TestAttempt",
+    "Course",
+    "Module",
+    "Lesson",
+    "Task",
+    "Submission",
+    "TaskKind",
+    "Item",
+    "UserItem",
+    "WheelSpin",
+    "Slot",
+    "BonusGrant",
+    "Achievement",
+    "UserAchievement",
+    "Meme",
+    "ConditionType",
 ]

@@ -1,293 +1,354 @@
-"""JSON-эндпоинты: проверка ответов, колесо, магазин, подсказки ИИ.
+"""JSON endpoints: answer checks, hints, the wheel and the shop.
 
-Тела запросов и ответов описаны Pydantic-схемами в schemas.py: FastAPI сам
-проверяет входные данные (422 при ошибке), отрезает лишнее в ответе и
-показывает всё это в документации /hog/docs.
+Request and response bodies are Pydantic schemas from schemas.py: FastAPI
+validates the input (422 on error), drops undeclared fields from responses
+and shows everything in the docs at /hog/docs.
 """
+
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api import schemas as с
-from app.api.deps import нужен_пользователь, токен_гостя
+from app.api import schemas
+from app.api.deps import GuestToken, RequiredUser, SessionDep
 from app.config import settings
-from app.database import получить_сессию
-from app.models import Item, Lesson, Submission, Task, TestAttempt, User, UserItem, ТипЗадания, Уровень
-from app.services.ai import ИИНедоступен, КлиентИИ
-from app.services.awards import Медали, случайный_мем
-from app.services.economy import НедостаточноМонет, СЕКТОРА, Экономика
-from app.services.sandbox import Песочница
-from app.services.testbank import АдаптивныйТест, ПО_ID
+from app.models import Item, Level, Submission, Task, TaskKind, TestAttempt, User, UserItem
+from app.services.ai import AIClient, AIUnavailableError
+from app.services.awards import MedalService, random_meme
+from app.services.economy import SECTORS, Economy, EconomyError
+from app.services.sandbox import Sandbox
+from app.services.testbank import BY_ID, AdaptiveTest
 
-# Префикс /api на maks.my уже занят другой платформой, поэтому свой — /hog.
-# Любой отказ отдаётся как {"detail": "..."} — это видно в документации.
-роутер = APIRouter(
+HINT_PROMPT = (
+    "You are a Python mentor. Answer in Russian, in two or three sentences. "
+    "Point the learner in the right direction, but never give the full solution code."
+)
+
+# /api on maks.my is already taken by another platform, hence /hog.
+# Every refusal is returned as {"detail": "..."}, which the docs show.
+router = APIRouter(
     prefix="/hog",
-    responses={400: {"model": с.ErrorOut}, 401: {"model": с.ErrorOut}, 404: {"model": с.ErrorOut}},
+    responses={
+        400: {"model": schemas.ErrorOut},
+        401: {"model": schemas.ErrorOut},
+        404: {"model": schemas.ErrorOut},
+    },
 )
 
 
-# --- входной тест ---
+def _public_url(path: str) -> str:
+    """Turn a path stored in the database into a URL for the browser.
 
-@роутер.post("/test/submit", tags=["тест"],
-             response_model=с.TestNextStage | с.TestResult)
-def проверить_тест(
-    request: Request,
-    данные: с.TestSubmit,
-    сессия: Session = Depends(получить_сессию),
-    гость: str = Depends(токен_гостя),
-):
-    """Принимает ответы этапа, отдаёт следующий этап или итог.
-
-    Поле experience — ответ на вопрос перед тестом: none, other или python.
-    Кто никогда не программировал, тест не проходит: сразу получает уровень
-    «новичок», а курс ему собирается с нулевого модуля.
+    Links are stored relative to the app (/static/...), so they do not depend
+    on the sub-path it is deployed under. BASE_PATH is added here, on output.
+    External URLs are returned as is.
     """
-    опыт = данные.experience
-    if опыт == "none":
-        попытка = TestAttempt(
-            session_token=гость or request.client.host,
-            correct_count=0, total_count=0,
-            determined_level=Уровень.НОВИЧОК, experience=опыт,
+    if path.startswith(("http://", "https://")) or not path.startswith("/"):
+        return path
+    return f"{settings.base_path}{path}"
+
+
+def _own_task(session: Session, task_id: int, user: User) -> Task:
+    """The task, if it belongs to the user's course; otherwise 404."""
+    task = session.get(Task, task_id)
+    if task is None or task.lesson.module.course.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Задание не найдено")
+    return task
+
+
+# --- placement test ---
+
+
+@router.post(
+    "/test/submit", tags=["test"], response_model=schemas.TestNextStage | schemas.TestResult
+)
+def submit_test(
+    request: Request,
+    body: schemas.TestSubmit,
+    session: SessionDep,
+    guest: GuestToken,
+):
+    """Accept the answers of a stage; return the next stage or the result.
+
+    experience is the answer given before the test: none, other or python.
+    Those who have never programmed skip the test: they get the beginner
+    level right away and their course starts with the intro module.
+    """
+    session_token = guest or request.client.host
+    if body.experience == "none":
+        session.add(
+            TestAttempt(
+                session_token=session_token,
+                correct_count=0,
+                total_count=0,
+                determined_level=Level.BEGINNER,
+                experience=body.experience,
+            )
         )
-        сессия.add(попытка)
-        сессия.commit()
+        session.commit()
         return {
-            "done": True, "from_zero": True,
-            "level": Уровень.НОВИЧОК.value, "level_label": Уровень.НОВИЧОК.подпись,
-            "correct": 0, "total": 0, "weak_topics": [], "explanations": [],
+            "done": True,
+            "from_zero": True,
+            "level": Level.BEGINNER.value,
+            "level_label": Level.BEGINNER.label,
+            "correct": 0,
+            "total": 0,
+            "weak_topics": [],
+            "explanations": [],
         }
 
-    разобранные = []
-    for о in данные.answers:
-        вопрос = ПО_ID.get(о.id)
-        if вопрос is None:
-            continue
-        разобранные.append({
-            "id": вопрос.id,
-            "given": о.answer,
-            "correct": о.answer == вопрос.ответ,
-            "topic": вопрос.тема,
-        })
+    graded = [
+        {
+            "id": question.id,
+            "given": given.answer,
+            "correct": given.answer == question.answer,
+            "topic": question.topic,
+        }
+        for given in body.answers
+        if (question := BY_ID.get(given.id)) is not None
+    ]
 
-    следующие = АдаптивныйТест.следующий_этап(разобранные)
-    if следующие:
+    next_questions = AdaptiveTest.next_stage(graded)
+    if next_questions:
         return {
             "done": False,
-            "questions": [в.для_клиента() for в in следующие],
-            "progress": len(разобранные),
+            "questions": [question.to_client() for question in next_questions],
+            "progress": len(graded),
         }
 
-    уровень = АдаптивныйТест.определить_уровень(разобранные)
-    слабые = АдаптивныйТест.слабые_темы(разобранные)
-    попытка = TestAttempt(
-        session_token=гость or request.client.host,
-        correct_count=sum(1 for о in разобранные if о["correct"]),
-        total_count=len(разобранные),
-        determined_level=уровень,
-        experience=опыт,
+    level = AdaptiveTest.determine_level(graded)
+    attempt = TestAttempt(
+        session_token=session_token,
+        correct_count=sum(1 for answer in graded if answer["correct"]),
+        total_count=len(graded),
+        determined_level=level,
+        experience=body.experience,
     )
-    попытка.ответы = разобранные
-    сессия.add(попытка)
-    сессия.commit()
+    attempt.answers = graded
+    session.add(attempt)
+    session.commit()
 
     return {
         "done": True,
         "from_zero": False,
-        "level": уровень.value,
-        "level_label": уровень.подпись,
-        "correct": попытка.correct_count,
-        "total": попытка.total_count,
-        "weak_topics": слабые,
+        "level": level.value,
+        "level_label": level.label,
+        "correct": attempt.correct_count,
+        "total": attempt.total_count,
+        "weak_topics": AdaptiveTest.weak_topics(graded),
         "explanations": [
-            {"id": о["id"], "correct": о["correct"], "text": ПО_ID[о["id"]].объяснение}
-            for о in разобранные if о["id"] in ПО_ID
+            {
+                "id": answer["id"],
+                "correct": answer["correct"],
+                "text": BY_ID[answer["id"]].explanation,
+            }
+            for answer in graded
         ],
     }
 
 
-def _адрес(путь: str) -> str:
-    """Путь из базы -> адрес для браузера.
-
-    В базе ссылки хранятся относительно приложения (/static/...), чтобы не
-    зависеть от того, в каком подкаталоге оно развёрнуто. Префикс BASE_PATH
-    добавляется здесь, при отдаче. Внешние адреса возвращаются как есть.
-    """
-    if путь.startswith(("http://", "https://")) or not путь.startswith("/"):
-        return путь
-    return f"{settings.base_path}{путь}"
+# --- tasks ---
 
 
-# --- проверка заданий ---
-
-@роутер.post("/task/{task_id}/check", tags=["уроки"], response_model=с.TaskResult)
-def проверить_задание(
+@router.post("/task/{task_id}/check", tags=["lessons"], response_model=schemas.TaskResult)
+def check_task(
     task_id: int,
-    данные: с.TaskAnswer,
-    юзер: User = Depends(нужен_пользователь),
-    сессия: Session = Depends(получить_сессию),
+    body: schemas.TaskAnswer,
+    user: RequiredUser,
+    session: SessionDep,
 ):
-    задание = сессия.get(Task, task_id)
-    if задание is None or задание.lesson.module.course.user_id != юзер.id:
-        raise HTTPException(status_code=404, detail="Задание не найдено")
+    """Check an answer. Code is run in the sandbox, other answers are compared with the key."""
+    task = _own_task(session, task_id, user)
+    is_correct, output, error, details = False, "", "", []
 
-    ответ_ученика = данные.answer
-    код = данные.code
-    верно, вывод, ошибка, детали = False, "", "", []
-
-    if задание.kind == ТипЗадания.КОД:
-        результат = Песочница().запустить(код, задание.проверки)
-        верно, вывод, ошибка = результат.passed, результат.stdout, результат.error
-        детали = [
-            {"call": п.call, "expected": п.expected, "got": п.got,
-             "passed": п.passed, "error": п.error}
-            for п in результат.checks
+    if task.kind == TaskKind.CODE:
+        result = Sandbox().run(body.code, task.checks)
+        is_correct, output, error = result.passed, result.stdout, result.error
+        details = [
+            {
+                "call": check.call,
+                "expected": check.expected,
+                "got": check.got,
+                "passed": check.passed,
+                "error": check.error,
+            }
+            for check in result.checks
         ]
-        сессия.add(Submission(
-            user_id=юзер.id, task_id=задание.id, code=код, passed=верно,
-            output=вывод[:2000], error=ошибка[:2000], duration_ms=результат.duration_ms,
-        ))
-    else:
-        # пробелы не считаем ошибкой: «[1,2,3]» и «[1, 2, 3]» — один и тот же ответ
-        эталон = "".join((задание.answer or "").split())
-        верно = "".join(ответ_ученика.split()) == эталон
-        сессия.add(Submission(
-            user_id=юзер.id, task_id=задание.id, code=ответ_ученика, passed=верно,
-        ))
-
-    if верно and not задание.is_completed:
-        задание.is_completed = True
-
-    урок = задание.lesson
-    итог_урока = None
-    if верно and all(з.is_completed for з in урок.tasks) and not урок.is_completed:
-        урок.is_completed = True
-        сессия.flush()
-        итог = Экономика(сессия).отметить_урок(юзер, урок.xp_reward)
-        # медали проверяем после начисления: условия считаются по свежим данным
-        новые_медали = Медали(сессия).проверить(юзер)
-        мем = случайный_мем(сессия)
-        итог_урока = {
-            "coins": итог.всего_монет,
-            "xp": итог.опыт,
-            "streak": итог.стрик,
-            "spins": итог.вращений_доступно,
-            "capped": итог.награда_ограничена,
-            "medals": [
-                {"icon": м.icon, "title": м.title, "description": м.description}
-                for м in новые_медали
-            ],
-            "meme": {"url": _адрес(мем.image_url), "caption": мем.caption} if мем else None,
-        }
-    сессия.commit()
-
-    return {
-        "correct": верно,
-        "output": вывод,
-        "error": ошибка,
-        "checks": детали,
-        "explanation": задание.solution if верно else "",
-        "hint": задание.hint,
-        "lesson_done": итог_урока,
-    }
-
-
-@роутер.post("/task/{task_id}/hint", tags=["уроки"], response_model=с.HintOut)
-def подсказка(
-    task_id: int,
-    данные: с.HintRequest,
-    юзер: User = Depends(нужен_пользователь),
-    сессия: Session = Depends(получить_сессию),
-):
-    """Живая подсказка от модели по коду ученика. Без ключа — статичная из задания."""
-    задание = сессия.get(Task, task_id)
-    if задание is None or задание.lesson.module.course.user_id != юзер.id:
-        raise HTTPException(status_code=404, detail="Задание не найдено")
-
-    клиент = КлиентИИ()
-    if not клиент.доступен:
-        return {"hint": задание.hint or "Перечитайте условие и разберите пример из теории.",
-                "source": "static"}
-
-    код = данные.code[:2000]
-    try:
-        ответ = клиент.спросить(
-            "Ты наставник по Python. Отвечай двумя-тремя предложениями по-русски. "
-            "Подсказывай направление, но никогда не давай готовый код целиком.",
-            f"Задание: {задание.prompt}\n\nКод ученика:\n{код or '(пусто)'}\n\n"
-            f"Скажи, в чём ошибка или что делать дальше.",
-            максимум_токенов=250, температура=0.5,
+        session.add(
+            Submission(
+                user_id=user.id,
+                task_id=task.id,
+                code=body.code,
+                passed=is_correct,
+                output=output[:2000],
+                error=error[:2000],
+                duration_ms=result.duration_ms,
+            )
         )
-        return {"hint": ответ.текст.strip(), "source": ответ.модель}
-    except ИИНедоступен:
-        return {"hint": задание.hint or "Разберите пример из теории ещё раз.", "source": "static"}
+    else:
+        # Whitespace is not a mistake: "[1,2,3]" and "[1, 2, 3]" are the same answer.
+        expected = "".join((task.answer or "").split())
+        is_correct = "".join(body.answer.split()) == expected
+        session.add(
+            Submission(user_id=user.id, task_id=task.id, code=body.answer, passed=is_correct)
+        )
 
+    if is_correct and not task.is_completed:
+        task.is_completed = True
 
-# --- колесо ---
+    lesson = task.lesson
+    lesson_result = None
+    if is_correct and all(t.is_completed for t in lesson.tasks) and not lesson.is_completed:
+        lesson.is_completed = True
+        session.flush()
+        outcome = Economy(session).complete_lesson(user, lesson.xp_reward)
+        # Medals are checked after the reward, so conditions see fresh data.
+        new_medals = MedalService(session).check(user)
+        meme = random_meme(session)
+        lesson_result = {
+            "coins": outcome.total_coins,
+            "xp": outcome.xp,
+            "streak": outcome.streak,
+            "spins": outcome.spins_available,
+            "capped": outcome.reward_capped,
+            "medals": [
+                {"icon": medal.icon, "title": medal.title, "description": medal.description}
+                for medal in new_medals
+            ],
+            "meme": {"url": _public_url(meme.image_url), "caption": meme.caption}
+            if meme
+            else None,
+        }
+    session.commit()
 
-@роутер.get("/wheel/state", tags=["колесо"], response_model=с.WheelState)
-def состояние_колеса(юзер: User = Depends(нужен_пользователь),
-                     сессия: Session = Depends(получить_сессию)):
     return {
-        "spins": Экономика(сессия).доступно_вращений(юзер),
-        "coins": юзер.coins,
-        "sectors": [{"coins": м, "weight": в} for м, в in СЕКТОРА],
+        "correct": is_correct,
+        "output": output,
+        "error": error,
+        "checks": details,
+        "explanation": task.solution if is_correct else "",
+        "hint": task.hint,
+        "lesson_done": lesson_result,
     }
 
 
-@роутер.post("/wheel/spin", tags=["колесо"], response_model=с.WheelSpin)
-def крутить_колесо(юзер: User = Depends(нужен_пользователь),
-                   сессия: Session = Depends(получить_сессию)):
-    экономика = Экономика(сессия)
+@router.post("/task/{task_id}/hint", tags=["lessons"], response_model=schemas.HintOut)
+def get_hint(
+    task_id: int,
+    body: schemas.HintRequest,
+    user: RequiredUser,
+    session: SessionDep,
+):
+    """A live hint from the model based on the learner's code.
+
+    Without an API key the task's own static hint is returned.
+    """
+    task = _own_task(session, task_id, user)
+    client = AIClient()
+    if not client.available:
+        return {
+            "hint": task.hint or "Перечитайте условие и разберите пример из теории.",
+            "source": "static",
+        }
+
+    code = body.code[:2000]
     try:
-        вращение = экономика.крутить(юзер)
-    except НедостаточноМонет as e:
+        reply = client.ask(
+            HINT_PROMPT,
+            f"Task: {task.prompt}\n\nLearner's code:\n{code or '(empty)'}\n\n"
+            "Say what is wrong or what to do next.",
+            max_tokens=250,
+            temperature=0.5,
+        )
+        return {"hint": reply.text.strip(), "source": reply.model}
+    except AIUnavailableError:
+        return {"hint": task.hint or "Разберите пример из теории ещё раз.", "source": "static"}
+
+
+# --- wheel ---
+
+
+@router.get("/wheel/state", tags=["wheel"], response_model=schemas.WheelState)
+def wheel_state(user: RequiredUser, session: SessionDep):
+    return {
+        "spins": Economy(session).available_spins(user),
+        "coins": user.coins,
+        "sectors": [{"coins": coins, "weight": weight} for coins, weight in SECTORS],
+    }
+
+
+@router.post("/wheel/spin", tags=["wheel"], response_model=schemas.WheelSpin)
+def spin_wheel(user: RequiredUser, session: SessionDep):
+    economy = Economy(session)
+    try:
+        wheel_spin = economy.spin(user)
+    except EconomyError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     return {
-        "sector": вращение.sector_index,
-        "coins_won": вращение.coins_won,
-        "coins": юзер.coins,
-        "spins_left": экономика.доступно_вращений(юзер),
+        "sector": wheel_spin.sector_index,
+        "coins_won": wheel_spin.coins_won,
+        "coins": user.coins,
+        "spins_left": economy.available_spins(user),
     }
 
 
-# --- магазин ---
+# --- shop ---
 
-@роутер.post("/shop/buy/{sku}", tags=["магазин"], response_model=с.PurchaseOut,
-             summary="Купить скин")
-def купить(sku: str, юзер: User = Depends(нужен_пользователь),
-           сессия: Session = Depends(получить_сессию)):
-    """Скин попадает в коллекцию и сразу становится активным.
 
-    400 — не хватает монет или уровень коллекции ещё не открыт.
+@router.post(
+    "/shop/buy/{sku}", tags=["shop"], response_model=schemas.PurchaseOut, summary="Buy a skin"
+)
+def buy_skin(sku: str, user: RequiredUser, session: SessionDep):
+    """The skin is added to the collection and becomes active right away.
+
+    400: not enough coins, or the collection tier is still locked.
     """
-    предмет = сессия.scalar(select(Item).where(Item.sku == sku, Item.is_active.is_(True)))
-    if предмет is None:
+    item = session.scalar(select(Item).where(Item.sku == sku, Item.is_active.is_(True)))
+    if item is None:
         raise HTTPException(status_code=404, detail="Предмет не найден")
     try:
-        покупка = Экономика(сессия).купить(юзер, предмет)
-    except НедостаточноМонет as e:
+        purchase = Economy(session).buy(user, item)
+    except EconomyError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return {"ok": True, "coins": юзер.coins, "equipped": покупка.is_equipped,
-            "slot": предмет.slot.value, "asset": предмет.asset_key}
+    return {
+        "ok": True,
+        "coins": user.coins,
+        "equipped": purchase.is_equipped,
+        "slot": item.slot.value,
+        "asset": item.asset_key,
+    }
 
 
-@роутер.post("/shop/equip/{sku}", tags=["магазин"], response_model=с.EquipOut,
-             summary="Сделать ежа активным")
-def надеть(sku: str, юзер: User = Depends(нужен_пользователь),
-           сессия: Session = Depends(получить_сессию)):
-    """Активным становится скин из коллекции, прежний перестаёт быть активным. 404 — скина нет в коллекции."""
-    предмет = сессия.scalar(select(Item).where(Item.sku == sku))
-    покупка = сессия.scalar(
-        select(UserItem).where(UserItem.user_id == юзер.id, UserItem.item_id == предмет.id)
-    ) if предмет else None
-    if покупка is None:
+@router.post(
+    "/shop/equip/{sku}",
+    tags=["shop"],
+    response_model=schemas.EquipOut,
+    summary="Make a hedgehog active",
+)
+def equip_skin(sku: str, user: RequiredUser, session: SessionDep):
+    """A skin from the collection becomes active; the previous one stops being active.
+
+    404: the skin is not in the user's collection.
+    """
+    item = session.scalar(select(Item).where(Item.sku == sku))
+    owned = (
+        session.scalar(
+            select(UserItem).where(UserItem.user_id == user.id, UserItem.item_id == item.id)
+        )
+        if item
+        else None
+    )
+    if owned is None:
         raise HTTPException(status_code=404, detail="Этого предмета у вас нет")
-    # Активный ёж всегда ровно один: снять его, оставив пустое место, нельзя.
-    # Повторный запрос на уже активного ничего не меняет.
-    Экономика(сессия).надеть(юзер, покупка)
-    сессия.commit()
-    return {"ok": True, "equipped": покупка.is_equipped, "slot": предмет.slot.value,
-            "asset": предмет.asset_key}
+    # There is always exactly one active hedgehog: it cannot be taken off.
+    # A repeated request for the active one changes nothing.
+    Economy(session).equip(user, owned)
+    session.commit()
+    return {
+        "ok": True,
+        "equipped": owned.is_equipped,
+        "slot": item.slot.value,
+        "asset": item.asset_key,
+    }

@@ -1,123 +1,177 @@
-"""Входной тест: банк заданий и адаптивная выдача.
+"""Placement test: the question bank and adaptive question order.
 
-Логика из концепции: сначала три средних. Слабо — три простых и уровень «новичок».
-Хорошо — три сложных, и по ним разделяются средний и продвинутый.
+First come three medium questions. Weak results lead to three easy ones and
+the beginner level. Good results lead to three hard ones, which separate the
+intermediate and advanced levels.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.models import Уровень
+from app.models import Level
 
-ПРОСТОЙ, СРЕДНИЙ, СЛОЖНЫЙ = "easy", "medium", "hard"
+EASY, MEDIUM, HARD = "easy", "medium", "hard"
 
 
 @dataclass(frozen=True)
-class Вопрос:
-    """Один вопрос теста. Ответ на сервере, клиенту не отдаётся."""
+class Question:
+    """A single test question. The answer stays on the server."""
 
     id: str
-    сложность: str
-    тема: str
-    текст: str
-    код: str = ""
-    варианты: list[str] = field(default_factory=list)
-    ответ: str = ""
-    объяснение: str = ""
+    difficulty: str
+    topic: str
+    text: str
+    code: str = ""
+    options: list[str] = field(default_factory=list)
+    answer: str = ""
+    explanation: str = ""
 
-    def для_клиента(self) -> dict:
+    def to_client(self) -> dict:
+        """The question without its answer, as sent to the browser."""
         return {
             "id": self.id,
-            "difficulty": self.сложность,
-            "topic": self.тема,
-            "text": self.текст,
-            "code": self.код,
-            "options": self.варианты,
+            "difficulty": self.difficulty,
+            "topic": self.topic,
+            "text": self.text,
+            "code": self.code,
+            "options": self.options,
         }
 
 
-БАНК: list[Вопрос] = [
-    Вопрос("E1", ПРОСТОЙ, "арифметика",
-           "Что выведет этот код?", "x = 7\nprint(x // 2)",
-           ["3", "3.5", "4", "1"], "3",
-           "Два слэша — целочисленное деление: дробная часть отбрасывается."),
-    Вопрос("E2", ПРОСТОЙ, "списки",
-           "Что выведет этот код?", 'items = ["a", "b", "c"]\nprint(items[1])',
-           ["b", "a", "c", "ошибка"], "b",
-           "Индексы начинаются с нуля, поэтому items[1] — второй элемент."),
-    Вопрос("E3", ПРОСТОЙ, "условия",
-           "Какой оператор поставить, чтобы условие выполнялось для совершеннолетних?",
-           "if age __ 18:\n    print('можно')",
-           [">=", ">", "==", "<="], ">=",
-           "Совершеннолетние — это 18 и больше, значит нужно «больше или равно»."),
-    Вопрос("M1", СРЕДНИЙ, "генераторы списков",
-           "Что выведет этот код?", "print([x * x for x in range(5) if x % 2 == 0])",
-           ["[0, 4, 16]", "[0, 1, 4, 9, 16]", "[4, 16]", "[0, 2, 4]"], "[0, 4, 16]",
-           "Берутся только чётные 0, 2, 4 — и возводятся в квадрат."),
-    Вопрос("M2", СРЕДНИЙ, "словари",
-           "Что выведет этот код?",
-           'd = {"a": 2}\nd["b"] = d.get("b", 0) + 1\nprint(d["b"])',
-           ["1", "0", "2", "KeyError"], "1",
-           "Ключа b ещё нет, get вернёт 0, к нему прибавляется единица."),
-    Вопрос("M3", СРЕДНИЙ, "изменяемость",
-           "Что выведет этот код?",
-           "def add_one(xs):\n    xs.append(1)\n\na = [0]\nr = add_one(a)\nprint(a, r)",
-           ["[0, 1] None", "[0] None", "[0, 1] [0, 1]", "[0] [0, 1]"], "[0, 1] None",
-           "Список меняется на месте, а функция без return возвращает None."),
-    Вопрос("H1", СЛОЖНЫЙ, "аргументы по умолчанию",
-           "Что выведет этот код?",
-           "def f(x, acc=[]):\n    acc.append(x)\n    return len(acc)\n\nprint(f(1), f(2))",
-           ["1 2", "1 1", "2 2", "ошибка"], "1 2",
-           "Список по умолчанию создаётся один раз и живёт между вызовами."),
-    Вопрос("H2", СЛОЖНЫЙ, "замыкания",
-           "Что выведет этот код?",
-           "fs = [lambda: i for i in range(3)]\nprint([f() for f in fs])",
-           ["[2, 2, 2]", "[0, 1, 2]", "[3, 3, 3]", "[0, 0, 0]"], "[2, 2, 2]",
-           "Замыкание держит саму переменную, а не её значение на момент создания."),
-    Вопрос("H3", СЛОЖНЫЙ, "генераторы",
-           "Что выведет этот код?",
-           "g = (x * x for x in range(3))\nprint(sum(g), sum(g))",
-           ["5 0", "5 5", "0 5", "ошибка"], "5 0",
-           "Генератор обходится один раз: второй sum получает уже пустую последовательность."),
+BANK: list[Question] = [
+    Question(
+        "E1",
+        EASY,
+        "арифметика",
+        "Что выведет этот код?",
+        "x = 7\nprint(x // 2)",
+        ["3", "3.5", "4", "1"],
+        "3",
+        "Два слэша — целочисленное деление: дробная часть отбрасывается.",
+    ),
+    Question(
+        "E2",
+        EASY,
+        "списки",
+        "Что выведет этот код?",
+        'items = ["a", "b", "c"]\nprint(items[1])',
+        ["b", "a", "c", "ошибка"],
+        "b",
+        "Индексы начинаются с нуля, поэтому items[1] — второй элемент.",
+    ),
+    Question(
+        "E3",
+        EASY,
+        "условия",
+        "Какой оператор поставить, чтобы условие выполнялось для совершеннолетних?",
+        "if age __ 18:\n    print('можно')",
+        [">=", ">", "==", "<="],
+        ">=",
+        "Совершеннолетние — это 18 и больше, значит нужно «больше или равно».",
+    ),
+    Question(
+        "M1",
+        MEDIUM,
+        "генераторы списков",
+        "Что выведет этот код?",
+        "print([x * x for x in range(5) if x % 2 == 0])",
+        ["[0, 4, 16]", "[0, 1, 4, 9, 16]", "[4, 16]", "[0, 2, 4]"],
+        "[0, 4, 16]",
+        "Берутся только чётные 0, 2, 4 — и возводятся в квадрат.",
+    ),
+    Question(
+        "M2",
+        MEDIUM,
+        "словари",
+        "Что выведет этот код?",
+        'd = {"a": 2}\nd["b"] = d.get("b", 0) + 1\nprint(d["b"])',
+        ["1", "0", "2", "KeyError"],
+        "1",
+        "Ключа b ещё нет, get вернёт 0, к нему прибавляется единица.",
+    ),
+    Question(
+        "M3",
+        MEDIUM,
+        "изменяемость",
+        "Что выведет этот код?",
+        "def add_one(xs):\n    xs.append(1)\n\na = [0]\nr = add_one(a)\nprint(a, r)",
+        ["[0, 1] None", "[0] None", "[0, 1] [0, 1]", "[0] [0, 1]"],
+        "[0, 1] None",
+        "Список меняется на месте, а функция без return возвращает None.",
+    ),
+    Question(
+        "H1",
+        HARD,
+        "аргументы по умолчанию",
+        "Что выведет этот код?",
+        "def f(x, acc=[]):\n    acc.append(x)\n    return len(acc)\n\nprint(f(1), f(2))",
+        ["1 2", "1 1", "2 2", "ошибка"],
+        "1 2",
+        "Список по умолчанию создаётся один раз и живёт между вызовами.",
+    ),
+    Question(
+        "H2",
+        HARD,
+        "замыкания",
+        "Что выведет этот код?",
+        "fs = [lambda: i for i in range(3)]\nprint([f() for f in fs])",
+        ["[2, 2, 2]", "[0, 1, 2]", "[3, 3, 3]", "[0, 0, 0]"],
+        "[2, 2, 2]",
+        "Замыкание держит саму переменную, а не её значение на момент создания.",
+    ),
+    Question(
+        "H3",
+        HARD,
+        "генераторы",
+        "Что выведет этот код?",
+        "g = (x * x for x in range(3))\nprint(sum(g), sum(g))",
+        ["5 0", "5 5", "0 5", "ошибка"],
+        "5 0",
+        "Генератор обходится один раз: второй sum получает уже пустую последовательность.",
+    ),
 ]
 
-ПО_ID = {в.id: в for в in БАНК}
+BY_ID = {question.id: question for question in BANK}
 
 
-def по_сложности(сложность: str) -> list[Вопрос]:
-    return [в for в in БАНК if в.сложность == сложность]
+def by_difficulty(difficulty: str) -> list[Question]:
+    return [question for question in BANK if question.difficulty == difficulty]
 
 
-class АдаптивныйТест:
-    """Ведёт человека по ветке теста и выносит итоговый уровень."""
+class AdaptiveTest:
+    """Walks a learner through the test branches and determines the final level."""
 
-    ПЕРВЫЙ_ЭТАП = [в.id for в in по_сложности(СРЕДНИЙ)]
-
-    @staticmethod
-    def первые_вопросы() -> list[Вопрос]:
-        return по_сложности(СРЕДНИЙ)
+    FIRST_STAGE = [question.id for question in by_difficulty(MEDIUM)]
 
     @staticmethod
-    def следующий_этап(ответы: list[dict]) -> list[Вопрос]:
-        """Что показать после трёх средних. Пустой список — тест окончен."""
-        средние = [о for о in ответы if о["id"] in АдаптивныйТест.ПЕРВЫЙ_ЭТАП]
-        if len(средние) < 3:
+    def first_questions() -> list[Question]:
+        return by_difficulty(MEDIUM)
+
+    @staticmethod
+    def next_stage(answers: list[dict]) -> list[Question]:
+        """What to show after the three medium questions. An empty list ends the test."""
+        medium = [a for a in answers if a["id"] in AdaptiveTest.FIRST_STAGE]
+        if len(medium) < 3:
             return []
-        верных = sum(1 for о in средние if о["correct"])
-        уже = {о["id"] for о in ответы}
-        нужны = по_сложности(ПРОСТОЙ) if верных <= 1 else по_сложности(СЛОЖНЫЙ)
-        return [в for в in нужны if в.id not in уже]
+        correct = sum(1 for a in medium if a["correct"])
+        asked = {a["id"] for a in answers}
+        candidates = by_difficulty(EASY) if correct <= 1 else by_difficulty(HARD)
+        return [question for question in candidates if question.id not in asked]
 
     @staticmethod
-    def определить_уровень(ответы: list[dict]) -> Уровень:
-        средние = sum(1 for о in ответы if о["id"].startswith("M") and о["correct"])
-        сложные = sum(1 for о in ответы if о["id"].startswith("H") and о["correct"])
-        if средние <= 1:
-            return Уровень.НОВИЧОК
-        if сложные >= 2:
-            return Уровень.ПРОДВИНУТЫЙ
-        return Уровень.СРЕДНИЙ
+    def determine_level(answers: list[dict]) -> Level:
+        medium_correct = sum(1 for a in answers if a["id"].startswith("M") and a["correct"])
+        hard_correct = sum(1 for a in answers if a["id"].startswith("H") and a["correct"])
+        if medium_correct <= 1:
+            return Level.BEGINNER
+        if hard_correct >= 2:
+            return Level.ADVANCED
+        return Level.INTERMEDIATE
 
     @staticmethod
-    def слабые_темы(ответы: list[dict]) -> list[str]:
-        return sorted({ПО_ID[о["id"]].тема for о in ответы if not о["correct"] and о["id"] in ПО_ID})
+    def weak_topics(answers: list[dict]) -> list[str]:
+        """Topics of the questions answered incorrectly."""
+        return sorted(
+            {BY_ID[a["id"]].topic for a in answers if not a["correct"] and a["id"] in BY_ID}
+        )

@@ -1,94 +1,100 @@
-// Подсветка синтаксиса Python (требование 2.6).
+// Python syntax highlighting (requirement 2.6).
 //
-// Своя, а не библиотека с CDN: у проекта нет сборки, а тащить 40 КБ
-// стороннего кода ради одного языка и одного экрана незачем. Плюс
-// приложение продолжает работать без интернета.
+// Hand-written rather than a CDN library: the project has no build step, and
+// pulling 40 KB of third-party code for one language on one screen is not worth
+// it. The app also keeps working offline.
 //
-// Приём: подсвеченный <pre> лежит ПОД прозрачной textarea и повторяет её
-// содержимое и прокрутку. Ввод, выделение, курсор и автодополнение
-// браузера остаются штатными, а селектор .редактор, на котором висит
-// lesson.js, не меняется.
+// How it works: a highlighted <pre> sits UNDER a transparent textarea and mirrors
+// its content and scroll position. Typing, selection, the caret and browser
+// autocomplete stay native, and the .editor selector used by lesson.js is unchanged.
 (() => {
-  const КЛЮЧЕВЫЕ = new Set([
-    "and","as","assert","async","await","break","class","continue","def","del",
-    "elif","else","except","finally","for","from","global","if","import","in",
-    "is","lambda","nonlocal","not","or","pass","raise","return","try","while",
-    "with","yield","True","False","None","match","case",
+  const KEYWORDS = new Set([
+    "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del",
+    "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in",
+    "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
+    "with", "yield", "True", "False", "None", "match", "case",
   ]);
 
-  const ВСТРОЕННЫЕ = new Set([
-    "abs","all","any","bool","dict","dir","enumerate","filter","float","format",
-    "frozenset","getattr","hasattr","input","int","isinstance","len","list","map",
-    "max","min","next","open","ord","chr","print","range","repr","reversed","round",
-    "set","setattr","sorted","str","sum","tuple","type","zip","self",
+  const BUILTINS = new Set([
+    "abs", "all", "any", "bool", "dict", "dir", "enumerate", "filter", "float", "format",
+    "frozenset", "getattr", "hasattr", "input", "int", "isinstance", "len", "list", "map",
+    "max", "min", "next", "open", "ord", "chr", "print", "range", "repr", "reversed", "round",
+    "set", "setattr", "sorted", "str", "sum", "tuple", "type", "zip", "self",
   ]);
 
-  const экр = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
-  // Порядок важен: сначала то, внутри чего подсветка не нужна.
-  const ЛЕКСЕМА = new RegExp([
-    /#[^\n]*/,                                   // комментарий
-    /"""[\s\S]*?"""|'''[\s\S]*?'''/,             // тройные строки
-    /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,   // обычные строки
-    /\b\d+\.?\d*(?:[eE][+-]?\d+)?\b/,            // числа
-    /\b[A-Za-z_]\w*\b/,                          // слова
-  ].map((р) => р.source).join("|"), "g");
+  // Order matters: first the tokens whose contents must not be highlighted.
+  const TOKEN = new RegExp([
+    /#[^\n]*/,                                   // comment
+    /"""[\s\S]*?"""|'''[\s\S]*?'''/,             // triple-quoted string
+    /"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/,   // string
+    /\b\d+\.?\d*(?:[eE][+-]?\d+)?\b/,            // number
+    /\b[A-Za-z_]\w*\b/,                          // word
+  ].map((pattern) => pattern.source).join("|"), "g");
 
-  function подсветить(код) {
-    let итог = "", позиция = 0, м;
-    ЛЕКСЕМА.lastIndex = 0;
-    while ((м = ЛЕКСЕМА.exec(код)) !== null) {
-      итог += экр(код.slice(позиция, м.index));
-      const т = м[0];
-      позиция = м.index + т.length;
-      let класс = "";
-      if (т[0] === "#") класс = "тк-ком";
-      else if (т[0] === '"' || т[0] === "'") класс = "тк-стр";
-      else if (/^\d/.test(т)) класс = "тк-чис";
-      else if (КЛЮЧЕВЫЕ.has(т)) класс = "тк-кл";
-      else if (ВСТРОЕННЫЕ.has(т)) класс = "тк-вст";
-      else if (код[позиция] === "(") класс = "тк-фун";
-      итог += класс ? `<span class="${класс}">${экр(т)}</span>` : экр(т);
-    }
-    итог += экр(код.slice(позиция));
-    // хвостовой перевод строки нужен, иначе последняя строка «съедается»
-    return итог + "\n";
+  function tokenClass(token, nextChar) {
+    if (token[0] === "#") return "tok-com";
+    if (token[0] === '"' || token[0] === "'") return "tok-str";
+    if (/^\d/.test(token)) return "tok-num";
+    if (KEYWORDS.has(token)) return "tok-kw";
+    if (BUILTINS.has(token)) return "tok-builtin";
+    if (nextChar === "(") return "tok-fn";
+    return "";
   }
 
-  document.querySelectorAll("textarea.редактор").forEach((поле) => {
-    if (поле.closest(".редактор-обёртка")) return;
+  function highlight(code) {
+    let html = "";
+    let position = 0;
+    let match;
+    TOKEN.lastIndex = 0;
+    while ((match = TOKEN.exec(code)) !== null) {
+      html += escapeHtml(code.slice(position, match.index));
+      const token = match[0];
+      position = match.index + token.length;
+      const cls = tokenClass(token, code[position]);
+      html += cls ? `<span class="${cls}">${escapeHtml(token)}</span>` : escapeHtml(token);
+    }
+    html += escapeHtml(code.slice(position));
+    // A trailing newline is required, otherwise the last line gets "eaten"
+    return html + "\n";
+  }
 
-    const обёртка = document.createElement("div");
-    обёртка.className = "редактор-обёртка";
-    поле.parentNode.insertBefore(обёртка, поле);
+  document.querySelectorAll("textarea.editor").forEach((textarea) => {
+    if (textarea.closest(".editor-wrap")) return;
 
-    const слой = document.createElement("pre");
-    слой.className = "подсветка";
-    слой.setAttribute("aria-hidden", "true");
-    обёртка.append(слой, поле);
+    const wrap = document.createElement("div");
+    wrap.className = "editor-wrap";
+    textarea.parentNode.insertBefore(wrap, textarea);
 
-    const обновить = () => { слой.innerHTML = подсветить(поле.value); };
-    const синхронно = () => {
-      слой.scrollTop = поле.scrollTop;
-      слой.scrollLeft = поле.scrollLeft;
+    const layer = document.createElement("pre");
+    layer.className = "highlight";
+    layer.setAttribute("aria-hidden", "true");
+    wrap.append(layer, textarea);
+
+    const render = () => { layer.innerHTML = highlight(textarea.value); };
+    const syncScroll = () => {
+      layer.scrollTop = textarea.scrollTop;
+      layer.scrollLeft = textarea.scrollLeft;
     };
 
-    поле.addEventListener("input", () => { обновить(); синхронно(); });
-    поле.addEventListener("scroll", синхронно);
+    textarea.addEventListener("input", () => { render(); syncScroll(); });
+    textarea.addEventListener("scroll", syncScroll);
 
-    // Tab внутри редактора — отступ, а не уход фокуса.
-    // Esc возвращает штатное поведение, чтобы не запирать клавиатурных пользователей.
-    let выпускать = false;
-    поле.addEventListener("keydown", (с) => {
-      if (с.key === "Escape") { выпускать = true; return; }
-      if (с.key !== "Tab" || выпускать) { выпускать = false; return; }
-      с.preventDefault();
-      const н = поле.selectionStart, к = поле.selectionEnd;
-      поле.value = поле.value.slice(0, н) + "    " + поле.value.slice(к);
-      поле.selectionStart = поле.selectionEnd = н + 4;
-      обновить();
+    // Tab inside the editor indents instead of moving focus.
+    // Esc restores the default, so keyboard users are never trapped.
+    let releaseTab = false;
+    textarea.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { releaseTab = true; return; }
+      if (event.key !== "Tab" || releaseTab) { releaseTab = false; return; }
+      event.preventDefault();
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      textarea.value = textarea.value.slice(0, start) + "    " + textarea.value.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = start + 4;
+      render();
     });
 
-    обновить();
+    render();
   });
 })();

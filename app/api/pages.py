@@ -1,277 +1,353 @@
-"""Страницы приложения."""
+"""HTML pages rendered on the server."""
+
 from __future__ import annotations
 
 import secrets
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import контекст_шаблона, текущий_пользователь, токен_гостя, шаблоны
+from app.api.deps import (
+    GUEST_COOKIE,
+    LANG_COOKIE,
+    CurrentUser,
+    GuestToken,
+    SessionDep,
+    template_context,
+    templates,
+)
 from app.config import settings
-from app.database import получить_сессию
-from app.models import Course, Item, Lesson, TestAttempt, User, UserItem, Уровень
-from app.services.auth import COOKIE, Аутентификация, ОшибкаВхода
-from app.services.awards import Медали
-from app.services.admin import Админка
-from app.services.course import ГенераторКурса
-from app.services.prefetch import запустить as подготовить_фоном
-from app.services.economy import СЕКТОРА, Экономика
-from app.services.i18n import ЯЗЫКИ, выбрать, перевод
-from app.services.testbank import АдаптивныйТест
+from app.models import Course, Item, Lesson, Level, TestAttempt, User
+from app.services.auth import COOKIE, Auth, AuthError
+from app.services.awards import MedalService
+from app.services.course import CourseGenerator
+from app.services.economy import SECTORS, Economy
+from app.services.i18n import pick_language
+from app.services.prefetch import prefetch_lessons
+from app.services.testbank import AdaptiveTest
 
-роутер = APIRouter()
-БАЗА = settings.base_path
-
-
-def _контекст(request: Request, юзер: User | None, сессия: Session, **прочее) -> dict:
-    """Тонкая обёртка: вся логика в deps.контекст_шаблона."""
-    return контекст_шаблона(request, юзер, сессия, **прочее)
+router = APIRouter()
+BASE_PATH = settings.base_path
+SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
 
-@роутер.get("/", response_class=HTMLResponse)
-def лендинг(request: Request, юзер: User | None = Depends(текущий_пользователь),
-            сессия: Session = Depends(получить_сессию)):
-    if юзер:
-        return RedirectResponse(f"{БАЗА}/app", status_code=303)
-    return шаблоны.TemplateResponse(
-        request, "landing.html", _контекст(request, None, сессия))
-
-
-@роутер.get("/test", response_class=HTMLResponse)
-def страница_теста(request: Request, сессия: Session = Depends(получить_сессию)):
-    вопросы = [в.для_клиента() for в in АдаптивныйТест.первые_вопросы()]
-    ответ = шаблоны.TemplateResponse(
-        request, "test.html", _контекст(request, None, сессия, вопросы=вопросы)
-    )
-    if not request.cookies.get("codehog_guest"):
-        ответ.set_cookie("codehog_guest", secrets.token_urlsafe(16), max_age=86400, httponly=True)
-    return ответ
-
-
-@роутер.get("/register", response_class=HTMLResponse)
-def страница_регистрации(request: Request, сессия: Session = Depends(получить_сессию),
-                         гость: str = Depends(токен_гостя)):
-    попытка = сессия.scalar(
-        select(TestAttempt).where(TestAttempt.session_token == гость)
-        .order_by(TestAttempt.id.desc())
-    ) if гость else None
-    уровень = попытка.determined_level if попытка else None
-    return шаблоны.TemplateResponse(
-            request, "register.html",
-        _контекст(request, None, сессия, уровень=уровень, попытка=попытка,
-                  стартовые=_стартовые(сессия)),
-    )
-
-
-def _стартовые(сессия: Session) -> list[Item]:
-    """Девять скинов уровня 1 — из них при регистрации выбирается ёж."""
-    return list(сессия.scalars(
-        select(Item).where(Item.tier == 1, Item.is_active.is_(True)).order_by(Item.sort_order)
-    ))
-
-
-@роутер.post("/register")
-def регистрация(
+def _render(
     request: Request,
-    email: str = Form(...), username: str = Form(...), password: str = Form(...),
-    level: str = Form("beginner"), skin: str = Form("hog-1-1"),
-    сессия: Session = Depends(получить_сессию), гость: str = Depends(токен_гостя),
-):
-    авторизация = Аутентификация(сессия)
-    try:
-        уровень = Уровень(level)
-    except ValueError:
-        уровень = Уровень.НОВИЧОК
-    try:
-        юзер = авторизация.зарегистрировать(email, username, password, уровень)
-    except ОшибкаВхода as e:
-        return шаблоны.TemplateResponse(
-            request, "register.html",
-            # всё введённое возвращаем в форму, иначе после ошибки выбор ежа
-            # молча сбрасывался на первого, синего
-            _контекст(request, None, сессия, ошибка=str(e), уровень=уровень, попытка=None,
-                      стартовые=_стартовые(сессия), выбранный=skin,
-                      введено={"email": email, "username": username}),
-            status_code=400,
-        )
+    template: str,
+    user: User | None,
+    session: Session,
+    status_code: int = 200,
+    **extra,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        template,
+        template_context(request, user, session, **extra),
+        status_code=status_code,
+    )
 
-    слабые: list[str] = []
-    опыт = ""
-    if гость:
-        попытка = сессия.scalar(
-            select(TestAttempt).where(TestAttempt.session_token == гость)
+
+def _signed_in(response: RedirectResponse, user: User) -> RedirectResponse:
+    response.set_cookie(
+        COOKIE, Auth.sign(user.id), max_age=SESSION_MAX_AGE, httponly=True, samesite="lax"
+    )
+    return response
+
+
+def _active_course(session: Session, user: User) -> Course | None:
+    return session.scalar(
+        select(Course)
+        .where(Course.user_id == user.id, Course.is_active.is_(True))
+        .order_by(Course.id.desc())
+    )
+
+
+def _starter_skins(session: Session) -> list[Item]:
+    """The nine tier-1 skins; the starter hedgehog is picked from them at sign-up."""
+    return list(
+        session.scalars(
+            select(Item).where(Item.tier == 1, Item.is_active.is_(True)).order_by(Item.sort_order)
+        )
+    )
+
+
+def _redirect_after_login(next_url: str) -> str:
+    """Where to go after login: only inside the app, otherwise to the course.
+
+    Only paths under our sub-path are accepted, so a link like
+    ?next=https://other.site cannot lead someone away after they enter a password.
+    """
+    if next_url.startswith(f"{BASE_PATH}/") and not next_url.startswith("//"):
+        return next_url
+    return f"{BASE_PATH}/app"
+
+
+# --- public pages ---
+
+
+@router.get("/", response_class=HTMLResponse)
+def landing(
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    if user:
+        return RedirectResponse(f"{BASE_PATH}/app", status_code=303)
+    return _render(request, "landing.html", None, session)
+
+
+@router.get("/test", response_class=HTMLResponse)
+def test_page(request: Request, session: SessionDep):
+    questions = [question.to_client() for question in AdaptiveTest.first_questions()]
+    response = _render(request, "test.html", None, session, questions=questions)
+    if not request.cookies.get(GUEST_COOKIE):
+        response.set_cookie(GUEST_COOKIE, secrets.token_urlsafe(16), max_age=86400, httponly=True)
+    return response
+
+
+@router.get("/terms", response_class=HTMLResponse)
+def terms(
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    """Terms of use. Open to everyone, guests included."""
+    return _render(request, "terms.html", user, session)
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+def privacy(
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    """Privacy policy. Open to everyone, guests included."""
+    return _render(request, "privacy.html", user, session)
+
+
+@router.get("/lang/{code}")
+def set_language(code: str, request: Request):
+    """Switch the interface language. Russian is the default."""
+    back = request.headers.get("referer") or f"{BASE_PATH}/"
+    response = RedirectResponse(back, status_code=303)
+    response.set_cookie(
+        LANG_COOKIE, pick_language(code), max_age=60 * 60 * 24 * 365, samesite="lax"
+    )
+    return response
+
+
+# --- sign-up and login ---
+
+
+@router.get("/register", response_class=HTMLResponse)
+def register_page(request: Request, session: SessionDep, guest: GuestToken):
+    attempt = (
+        session.scalar(
+            select(TestAttempt)
+            .where(TestAttempt.session_token == guest)
             .order_by(TestAttempt.id.desc())
         )
-        if попытка and попытка.user_id is None:
-            попытка.user_id = юзер.id
-            слабые = АдаптивныйТест.слабые_темы(попытка.ответы)
-            # опыт решает, будет ли перед курсом вводный модуль
-            опыт = попытка.experience
-            сессия.commit()
-
-    # стартовый ёж — бесплатно, выбранный на форме; чужой или неверный sku заменяется первым
-    ёж = сессия.scalar(select(Item).where(Item.sku == skin, Item.tier == 1, Item.is_active.is_(True)))
-    ёж = ёж or (_стартовые(сессия) or [None])[0]
-    if ёж is not None:
-        Экономика(сессия).купить(юзер, ёж)
-
-    ГенераторКурса(сессия).создать(юзер, слабые, опыт=опыт)
-    подготовить_фоном(юзер.id)          # следующие уроки готовятся, пока человек читает первый
-    ответ = RedirectResponse(f"{БАЗА}/app", status_code=303)
-    ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
-                     httponly=True, samesite="lax")
-    return ответ
+        if guest
+        else None
+    )
+    level = attempt.determined_level if attempt else None
+    return _render(
+        request, "register.html", None, session, level=level, starter_skins=_starter_skins(session)
+    )
 
 
-def _куда_после_входа(next_: str) -> str:
-    """Адрес возврата после входа — только внутри приложения, иначе в курс.
-
-    Принимаем лишь пути нашего подкаталога: ссылка вида ?next=https://чужой.сайт
-    не должна уводить человека со стенда после ввода пароля.
-    """
-    if next_.startswith(f"{БАЗА}/") and not next_.startswith("//"):
-        return next_
-    return f"{БАЗА}/app"
-
-
-@роутер.get("/login", response_class=HTMLResponse)
-def страница_входа(request: Request, next: str = "", сессия: Session = Depends(получить_сессию)):
-    return шаблоны.TemplateResponse(
-        request, "login.html", _контекст(request, None, сессия, next=_куда_после_входа(next)))
-
-
-@роутер.post("/login")
-def вход(request: Request, email: str = Form(...), password: str = Form(...),
-         next: str = Form(""), сессия: Session = Depends(получить_сессию)):
+@router.post("/register")
+def register_submit(
+    request: Request,
+    session: SessionDep,
+    guest: GuestToken,
+    email: Annotated[str, Form()],
+    username: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    level: Annotated[str, Form()] = "beginner",
+    skin: Annotated[str, Form()] = "hog-1-1",
+):
     try:
-        юзер = Аутентификация(сессия).войти(email, password)
-    except ОшибкаВхода as e:
-        return шаблоны.TemplateResponse(
-            request, "login.html",
-            _контекст(request, None, сессия, ошибка=str(e), next=_куда_после_входа(next)),
+        chosen_level = Level(level)
+    except ValueError:
+        chosen_level = Level.BEGINNER
+    try:
+        user = Auth(session).register(email, username, password, chosen_level)
+    except AuthError as e:
+        # Everything entered goes back into the form; otherwise the chosen
+        # hedgehog would silently reset to the first, blue one after an error.
+        return _render(
+            request,
+            "register.html",
+            None,
+            session,
             status_code=400,
+            error=str(e),
+            level=chosen_level,
+            starter_skins=_starter_skins(session),
+            selected_skin=skin,
+            entered={"email": email, "username": username},
         )
-    ответ = RedirectResponse(_куда_после_входа(next), status_code=303)
-    ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
-                     httponly=True, samesite="lax")
-    return ответ
 
+    weak_topics: list[str] = []
+    experience = ""
+    if guest:
+        attempt = session.scalar(
+            select(TestAttempt)
+            .where(TestAttempt.session_token == guest)
+            .order_by(TestAttempt.id.desc())
+        )
+        if attempt and attempt.user_id is None:
+            attempt.user_id = user.id
+            weak_topics = AdaptiveTest.weak_topics(attempt.answers)
+            # Experience decides whether an intro module goes before the course.
+            experience = attempt.experience
+            session.commit()
 
-@роутер.get("/lang/{code}")
-def сменить_язык(code: str, request: Request):
-    """Переключение языка. Русский по умолчанию, чеченский — для своих."""
-    назад = request.headers.get("referer") or f"{БАЗА}/"
-    ответ = RedirectResponse(назад, status_code=303)
-    ответ.set_cookie("lang", выбрать(code), max_age=60 * 60 * 24 * 365, samesite="lax")
-    return ответ
-
-
-@роутер.get("/logout")
-def выход():
-    ответ = RedirectResponse(f"{БАЗА}/", status_code=303)
-    ответ.delete_cookie(COOKIE)
-    return ответ
-
-
-@роутер.get("/app", response_class=HTMLResponse)
-def кабинет(request: Request, юзер: User | None = Depends(текущий_пользователь),
-            сессия: Session = Depends(получить_сессию)):
-    if not юзер:
-        return RedirectResponse(f"{БАЗА}/", status_code=303)
-    курс = сессия.scalar(
-        select(Course).where(Course.user_id == юзер.id, Course.is_active.is_(True))
-        .order_by(Course.id.desc())
+    # The starter hedgehog chosen in the form is free. An unknown or foreign
+    # sku is replaced with the first starter skin.
+    starter = session.scalar(
+        select(Item).where(Item.sku == skin, Item.tier == 1, Item.is_active.is_(True))
     )
-    if курс is None:
-        курс = ГенераторКурса(сессия).создать(юзер)
-    return шаблоны.TemplateResponse(
-        request, "app.html", _контекст(request, юзер, сессия, курс=курс, сектора=СЕКТОРА)
+    starter = starter or next(iter(_starter_skins(session)), None)
+    if starter is not None:
+        Economy(session).buy(user, starter)
+
+    CourseGenerator(session).create(user, weak_topics, experience=experience)
+    prefetch_lessons(user.id)  # the next lessons are prepared while the first one is read
+    return _signed_in(RedirectResponse(f"{BASE_PATH}/app", status_code=303), user)
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, session: SessionDep, next: str = ""):
+    return _render(request, "login.html", None, session, next=_redirect_after_login(next))
+
+
+@router.post("/login")
+def login_submit(
+    request: Request,
+    session: SessionDep,
+    email: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    next: Annotated[str, Form()] = "",
+):
+    try:
+        user = Auth(session).login(email, password)
+    except AuthError as e:
+        return _render(
+            request,
+            "login.html",
+            None,
+            session,
+            status_code=400,
+            error=str(e),
+            next=_redirect_after_login(next),
+        )
+    return _signed_in(RedirectResponse(_redirect_after_login(next), status_code=303), user)
+
+
+@router.get("/logout")
+def logout():
+    response = RedirectResponse(f"{BASE_PATH}/", status_code=303)
+    response.delete_cookie(COOKIE)
+    return response
+
+
+# --- learner pages ---
+
+
+@router.get("/app", response_class=HTMLResponse)
+def dashboard(
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    if not user:
+        return RedirectResponse(f"{BASE_PATH}/", status_code=303)
+    course = _active_course(session, user) or CourseGenerator(session).create(user)
+    return _render(request, "app.html", user, session, course=course, sectors=SECTORS)
+
+
+@router.get("/lesson/{lesson_id}", response_class=HTMLResponse)
+def lesson_page(
+    lesson_id: int,
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    if not user:
+        return RedirectResponse(f"{BASE_PATH}/", status_code=303)
+    lesson = session.get(Lesson, lesson_id)
+    if lesson is None or lesson.module.course.user_id != user.id:
+        return RedirectResponse(f"{BASE_PATH}/app", status_code=303)
+
+    # Requirement 2.5: no moving on until the previous lesson is completed.
+    # The check is done on the server, so a direct link cannot bypass it.
+    if lesson.id not in lesson.module.course.open_lessons:
+        return RedirectResponse(f"{BASE_PATH}/app?locked=1", status_code=303)
+
+    attempt = session.scalar(
+        select(TestAttempt).where(TestAttempt.user_id == user.id).order_by(TestAttempt.id.desc())
+    )
+    weak_topics = AdaptiveTest.weak_topics(attempt.answers) if attempt else []
+    CourseGenerator(session).fill_lesson(lesson, user, weak_topics)
+    prefetch_lessons(user.id)  # top up the buffer of upcoming lessons
+    return _render(request, "lesson.html", user, session, lesson=lesson)
+
+
+@router.get("/profile", response_class=HTMLResponse)
+def profile(
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    """Profile: progress, coins, streak, hedgehog collection and medals (requirement 3.6, UC-7)."""
+    if not user:
+        return RedirectResponse(f"{BASE_PATH}/", status_code=303)
+    medals = MedalService(session)
+    # Catch up on what was earned outside lessons: purchases, the wheel, the
+    # placement test. Otherwise the medal would wait for the next completed lesson.
+    medals.check(user)
+    collection = sorted(
+        (owned for owned in user.items if owned.item.tier), key=lambda owned: owned.item.sort_order
+    )
+    return _render(
+        request,
+        "profile.html",
+        user,
+        session,
+        course=_active_course(session, user),
+        collection=collection,
+        medals=medals.all_with_status(user),
     )
 
 
-@роутер.get("/lesson/{lesson_id}", response_class=HTMLResponse)
-def урок(lesson_id: int, request: Request,
-         юзер: User | None = Depends(текущий_пользователь),
-         сессия: Session = Depends(получить_сессию)):
-    if not юзер:
-        return RedirectResponse(f"{БАЗА}/", status_code=303)
-    урок_ = сессия.get(Lesson, lesson_id)
-    if урок_ is None or урок_.module.course.user_id != юзер.id:
-        return RedirectResponse(f"{БАЗА}/app", status_code=303)
-
-    # Требование 2.5: пока предыдущий урок не пройден, дальше нельзя.
-    # Проверка именно на сервере — прямая ссылка её не обходит.
-    if урок_.id not in урок_.module.course.открытые_уроки:
-        return RedirectResponse(f"{БАЗА}/app?закрыт=1", status_code=303)
-
-    слабые: list[str] = []
-    попытка = сессия.scalar(
-        select(TestAttempt).where(TestAttempt.user_id == юзер.id).order_by(TestAttempt.id.desc())
-    )
-    if попытка:
-        слабые = АдаптивныйТест.слабые_темы(попытка.ответы)
-    ГенераторКурса(сессия).наполнить_урок(урок_, юзер, слабые)
-    подготовить_фоном(юзер.id)          # пополняем буфер следующих уроков
-    return шаблоны.TemplateResponse(
-        request, "lesson.html", _контекст(request, юзер, сессия, урок=урок_))
-
-
-@роутер.get("/profile", response_class=HTMLResponse)
-def профиль(request: Request, юзер: User | None = Depends(текущий_пользователь),
-            сессия: Session = Depends(получить_сессию)):
-    """Профиль: прогресс, монеты, серия и полученные медали (требование 3.6, UC-7)."""
-    if not юзер:
-        return RedirectResponse(f"{БАЗА}/", status_code=303)
-    медали = Медали(сессия)
-    # Догоняем то, что заработано вне урока: покупки, колесо, вводный тест.
-    # Иначе условие выполнено, а медали нет до следующего пройденного урока.
-    медали.проверить(юзер)
-    курс = сессия.scalar(
-        select(Course).where(Course.user_id == юзер.id, Course.is_active.is_(True))
-        .order_by(Course.id.desc())
-    )
-    return шаблоны.TemplateResponse(request, "profile.html", _контекст(
-        request, юзер, сессия,
-        курс=курс,
-        коллекция=sorted((п for п in юзер.items if п.item.tier), key=lambda п: п.item.sort_order),
-        медали=медали.все_с_отметкой(юзер),
-        показатели=медали.показатели(юзер),
-    ))
-
-
-@роутер.get("/terms", response_class=HTMLResponse)
-def соглашение(request: Request, юзер: User | None = Depends(текущий_пользователь),
-               сессия: Session = Depends(получить_сессию)):
-    """Пользовательское соглашение. Открыто всем, в том числе гостям."""
-    return шаблоны.TemplateResponse(request, "terms.html", _контекст(request, юзер, сессия))
-
-
-@роутер.get("/privacy", response_class=HTMLResponse)
-def политика(request: Request, юзер: User | None = Depends(текущий_пользователь),
-             сессия: Session = Depends(получить_сессию)):
-    """Политика конфиденциальности. Открыта всем, в том числе гостям."""
-    return шаблоны.TemplateResponse(request, "privacy.html", _контекст(request, юзер, сессия))
-
-
-@роутер.get("/shop", response_class=HTMLResponse)
-def магазин(request: Request, юзер: User | None = Depends(текущий_пользователь),
-            сессия: Session = Depends(получить_сессию)):
-    """Магазин скинов: шесть уровней по девять ежей, уровни открываются по модулям."""
-    if not юзер:
-        return RedirectResponse(f"{БАЗА}/", status_code=303)
-    экономика = Экономика(сессия)
-    скины = сессия.scalars(
+@router.get("/shop", response_class=HTMLResponse)
+def shop(
+    request: Request,
+    user: CurrentUser,
+    session: SessionDep,
+):
+    """Skin shop: six tiers of nine hedgehogs, tiers unlock as modules are completed."""
+    if not user:
+        return RedirectResponse(f"{BASE_PATH}/", status_code=303)
+    economy = Economy(session)
+    skins = session.scalars(
         select(Item).where(Item.is_active.is_(True), Item.tier >= 1).order_by(Item.sort_order)
     ).all()
-    уровни: dict[int, list[Item]] = {}
-    for скин in скины:
-        уровни.setdefault(скин.tier, []).append(скин)
-    мои = {п.item_id: п for п in юзер.items}
-    return шаблоны.TemplateResponse(request, "shop.html", _контекст(
-        request, юзер, сессия,
-        уровни=sorted(уровни.items()), мои=мои,
-        открыто=экономика.открытый_уровень(юзер),
-        старт_бесплатно=not экономика.есть_скин(юзер),
-    ))
+    tiers: dict[int, list[Item]] = {}
+    for skin in skins:
+        tiers.setdefault(skin.tier, []).append(skin)
+    return _render(
+        request,
+        "shop.html",
+        user,
+        session,
+        tiers=sorted(tiers.items()),
+        owned={owned.item_id: owned for owned in user.items},
+        unlocked_tier=economy.unlocked_tier(user),
+        free_starter=not economy.has_skin(user),
+    )

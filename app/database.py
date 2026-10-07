@@ -1,4 +1,5 @@
-"""Подключение к базе и выдача сессий."""
+"""Database engine and per-request sessions."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -9,30 +10,34 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
 
-_путь = settings.database_url
-if _путь.startswith("sqlite:///"):
-    Path(_путь.replace("sqlite:///", "")).parent.mkdir(parents=True, exist_ok=True)
+if settings.database_url.startswith("sqlite:///"):
+    Path(settings.database_url.removeprefix("sqlite:///")).parent.mkdir(
+        parents=True, exist_ok=True
+    )
 
 engine = create_engine(
     settings.database_url,
     echo=False,
     future=True,
-    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
+    connect_args={"check_same_thread": False}
+    if settings.database_url.startswith("sqlite")
+    else {},
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
 
 
-def получить_сессию() -> Iterator[Session]:
-    """Зависимость FastAPI: сессия на запрос."""
-    сессия = SessionLocal()
+def get_session() -> Iterator[Session]:
+    """FastAPI dependency: one session per request."""
+    session = SessionLocal()
     try:
-        yield сессия
+        yield session
     finally:
-        сессия.close()
+        session.close()
 
 
-def создать_таблицы() -> None:
-    from app.models import Base  # импорт здесь, чтобы все модели зарегистрировались
+def create_tables() -> None:
+    """Create the tables that do not exist yet."""
+    from app.models import Base  # imported here so every model is registered first
 
     Base.metadata.create_all(engine)

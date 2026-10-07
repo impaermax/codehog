@@ -1,38 +1,36 @@
-"""Схемы запросов и ответов JSON-API (/hog/...).
+"""Request and response schemas of the JSON API (/hog/...).
 
-FastAPI строит на них три вещи сразу:
-- проверку входных данных: неверный JSON отклоняется с кодом 422 ещё до
-  того, как запрос дойдёт до нашей логики;
-- фильтр ответа: наружу уходят только объявленные поля;
-- документацию: схемы видны в /hog/docs (Swagger UI).
+FastAPI builds three things from them:
+- input validation: malformed JSON is rejected with 422 before it reaches our code;
+- response filtering: only declared fields are sent out;
+- documentation: the schemas are shown in /hog/docs (Swagger UI).
 
-Имена классов и полей здесь английские, в отличие от остального кода: это
-внешний контракт. Поля — ключи JSON для фронтенда, классы — названия схем в
-OpenAPI, а генератор схемы пропускает в имя только латиницу.
+Field names are the JSON keys the frontend relies on.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-# --- входной тест ---
+# --- placement test ---
 
 Experience = Literal["", "none", "other", "python"]
 
 
 class QuestionAnswer(BaseModel):
-    id: str = Field(max_length=16, description="Код вопроса из банка, например E1")
+    id: str = Field(max_length=16, description="Question id from the bank, e.g. E1")
     answer: str = Field(default="", max_length=500)
 
 
 class TestSubmit(BaseModel):
-    """Тело POST /hog/test/submit."""
+    """Body of POST /hog/test/submit."""
 
     answers: list[QuestionAnswer] = Field(default_factory=list, max_length=20)
     experience: Experience = Field(
         default="",
-        description="Программировал ли раньше: none — нет, other — на другом языке, python — на Python",
+        description="Programmed before: none — no, other — another language, python — Python",
     )
 
 
@@ -68,17 +66,21 @@ class TestResult(BaseModel):
     explanations: list[AnswerExplanation]
 
 
-# --- задания ---
+# --- tasks ---
+
 
 class TaskAnswer(BaseModel):
-    """Тело POST /hog/task/{id}/check: answer — для тестов и «угадай вывод», code — для задач на код."""
+    """Body of POST /hog/task/{id}/check.
+
+    answer is used by quiz and predict tasks, code by code tasks.
+    """
 
     answer: str = Field(default="", max_length=2000)
     code: str = Field(default="", max_length=20000)
 
 
 class HintRequest(BaseModel):
-    """Тело POST /hog/task/{id}/hint."""
+    """Body of POST /hog/task/{id}/hint."""
 
     code: str = Field(default="", max_length=20000)
 
@@ -124,10 +126,11 @@ class TaskResult(BaseModel):
 
 class HintOut(BaseModel):
     hint: str
-    source: str = Field(description="static — из задания, иначе название модели ИИ")
+    source: str = Field(description="static for the task's own hint, otherwise the AI model name")
 
 
-# --- колесо ---
+# --- wheel ---
+
 
 class WheelSector(BaseModel):
     coins: int
@@ -147,7 +150,8 @@ class WheelSpin(BaseModel):
     spins_left: int
 
 
-# --- магазин ---
+# --- shop ---
+
 
 class PurchaseOut(BaseModel):
     ok: bool = True
@@ -164,10 +168,11 @@ class EquipOut(BaseModel):
     asset: str
 
 
-# --- служебное ---
+# --- service ---
+
 
 class ErrorOut(BaseModel):
-    """Так выглядит любой отказ: {"detail": "текст для пользователя"}."""
+    """Every refusal looks like this: {"detail": "message for the user"}."""
 
     detail: str
 

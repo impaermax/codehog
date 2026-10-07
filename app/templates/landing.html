@@ -1,66 +1,66 @@
 {% extends "base.html" %}
-{% block содержимое %}
+{% block content %}
 
-{# ── Первый экран: обещание слева, персонаж справа ── #}
-<section class="герой">
+{# ── Hero: the promise on the left, the hedgehog on the right ── #}
+<section class="hero">
   <div>
     <h1>
-      {{ т['герой.заголовок1'] }}<br>
-      {{ т['герой.заголовок2'] }} <em>{{ т['герой.акцент'] }}</em>.
+      {{ t['hero.title1'] }}<br>
+      {{ t['hero.title2'] }} <em>{{ t['hero.accent'] }}</em>.
     </h1>
-    <p class="подзаголовок">{{ т['герой.подзаголовок'] }}</p>
-    <a class="кнопка большая" href="{{ база }}/test">{{ т['герой.кнопка'] }}</a>
-    <div class="под-кнопкой">{{ т['герой.подкнопкой'] }}</div>
+    <p class="subtitle">{{ t['hero.subtitle'] }}</p>
+    <a class="btn large" href="{{ base_path }}/test">{{ t['hero.button'] }}</a>
+    <div class="hero-note">{{ t['hero.note'] }}</div>
   </div>
 
-  <div class="сцена">
-    <span class="метка" style="position:absolute; top:20px; left:20px">Твой прогресс видно</span>
-    <img src="{{ база }}/static/img/skins/1-1.webp" width="440" height="356"
+  <div class="stage">
+    <span class="tag" style="position:absolute; top:20px; left:20px">Твой прогресс видно</span>
+    <img src="{{ base_path }}/static/img/skins/1-1.webp" width="440" height="356"
          alt="Ёж за ноутбуком — персонаж, которого ты прокачиваешь" fetchpriority="high">
   </div>
 </section>
 
-{# ── Три ступени прокачки. Одно медиаокно, три вкладки. ── #}
+{# ── Three collection steps. On mobile they are shown one at a time. ── #}
 <section style="padding-bottom:8px">
-  <div class="витрина" id="витрина">
-    {% for ключ, номер, подпись in [
-        ('1-1', '01', 'Старт'),
-        ('3-6', '02', 'Уровень 3'),
-        ('5-7', '03', 'Уровень 6')] %}
-      <figure class="ступень {% if loop.first %}активна{% endif %}" data-шаг="{{ loop.index0 }}">
-        <img src="{{ база }}/static/img/skins/{{ ключ }}.webp" alt="{{ подпись }}"
+  <div class="showcase" id="showcase">
+    {% for asset, number, title, caption in [
+        ('1-1', '01', 'Старт', 'Стартовый ёж на выбор'),
+        ('3-6', '02', 'Уровень 3', 'Новые скины за каждый модуль'),
+        ('5-7', '03', 'Уровень 6', '54 ежа в коллекции')] %}
+      <figure class="showcase-item {% if loop.first %}active{% endif %}">
+        <img src="{{ base_path }}/static/img/skins/{{ asset }}.webp" alt="{{ title }}"
              loading="{{ 'eager' if loop.first else 'lazy' }}">
         <figcaption>
-          <span class="метка">{{ номер }} / {{ подпись }}</span>
-          <span class="тише">{{ ['Стартовый ёж на выбор', 'Новые скины за каждый модуль', '54 ежа в коллекции'][loop.index0] }}</span>
+          <span class="tag">{{ number }} / {{ title }}</span>
+          <span class="muted">{{ caption }}</span>
         </figcaption>
       </figure>
     {% endfor %}
   </div>
 </section>
 
-{# ── Полоса механики продукта ── #}
-<div class="шаги">
-  <div class="шаг"><b>01</b> {{ т['шаг.тест'] }}</div>
-  <div class="шаг">→</div>
-  <div class="шаг"><b>02</b> {{ т['шаг.курс'] }}</div>
-  <div class="шаг">→</div>
-  <div class="шаг"><b>03</b> {{ т['шаг.практика'] }}</div>
+{# ── How the product works ── #}
+<div class="steps">
+  <div class="step"><b>01</b> {{ t['step.test'] }}</div>
+  <div class="step">→</div>
+  <div class="step"><b>02</b> {{ t['step.course'] }}</div>
+  <div class="step">→</div>
+  <div class="step"><b>03</b> {{ t['step.practice'] }}</div>
 </div>
 
-<section class="сетка три" style="padding-bottom:56px">
-  <div class="карта">
-    <h3 style="margin-top:0">{{ т['блок.курс.титул'] }}</h3>
-    <p class="тише">{{ т['блок.курс.текст'] }}</p>
+<section class="grid three" style="padding-bottom:56px">
+  <div class="card">
+    <h3 style="margin-top:0">{{ t['card.course.title'] }}</h3>
+    <p class="muted">{{ t['card.course.text'] }}</p>
   </div>
-  <div class="карта">
-    <h3 style="margin-top:0">{{ т['блок.код.титул'] }}</h3>
-    <p class="тише">{{ т['блок.код.текст'] }}</p>
+  <div class="card">
+    <h3 style="margin-top:0">{{ t['card.code.title'] }}</h3>
+    <p class="muted">{{ t['card.code.text'] }}</p>
   </div>
-  <div class="карта">
-    <h3 style="margin-top:0">{{ т['блок.монеты.титул'] }}</h3>
-    <p class="тише">{{ т['блок.монеты.текст'] }}</p>
+  <div class="card">
+    <h3 style="margin-top:0">{{ t['card.coins.title'] }}</h3>
+    <p class="muted">{{ t['card.coins.text'] }}</p>
   </div>
 </section>
 {% endblock %}
-{% block скрипты %}<script src="{{ база }}/static/js/landing.js"></script>{% endblock %}
+{% block scripts %}<script src="{{ base_path }}/static/js/landing.js"></script>{% endblock %}

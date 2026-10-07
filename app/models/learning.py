@@ -1,4 +1,5 @@
-"""Учебная часть: тест на уровень, курс, модули, уроки, задачи и решения."""
+"""Learning data: placement test, course, modules, lessons, tasks and submissions."""
+
 from __future__ import annotations
 
 import enum
@@ -9,42 +10,42 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, ВременнЫеМетки, сейчас
-from app.models.user import Уровень
+from app.models.base import Base, TimestampMixin, utc_now
+from app.models.user import Level
 
 if TYPE_CHECKING:
     from app.models.user import User
 
 
-class ТипЗадания(str, enum.Enum):
-    """Разные типы, чтобы курс не был однообразным."""
+class TaskKind(enum.StrEnum):
+    """Task types, so lessons do not feel repetitive."""
 
-    КОД = "code"            # написать функцию, проверяется тестами
-    ВЫБОР = "quiz"          # выбрать правильный вариант
-    ВЫВОД = "predict"       # что напечатает этот код
-    ПОРЯДОК = "order"       # расставить строки в правильном порядке
-    ПОЧИНИ = "debug"        # найти и исправить ошибку в готовом коде
+    CODE = "code"  # write a function, checked by tests
+    QUIZ = "quiz"  # pick the right option
+    PREDICT = "predict"  # what will this code print
+    ORDER = "order"  # put lines in the right order
+    DEBUG = "debug"  # find and fix a bug in given code
 
 
-class JSONПоле:
-    """Хелпер: хранить структуру в TEXT и не думать о сериализации."""
+class JSONField:
+    """Helpers for storing a structure in a TEXT column."""
 
     @staticmethod
-    def прочитать(сырое: str | None, дефолт: Any) -> Any:
-        if not сырое:
-            return дефолт
+    def load(raw: str | None, default: Any) -> Any:
+        if not raw:
+            return default
         try:
-            return json.loads(сырое)
+            return json.loads(raw)
         except (ValueError, TypeError):
-            return дефолт
+            return default
 
     @staticmethod
-    def записать(значение: Any) -> str:
-        return json.dumps(значение, ensure_ascii=False)
+    def dump(value: Any) -> str:
+        return json.dumps(value, ensure_ascii=False)
 
 
 class TestAttempt(Base):
-    """Прохождение входного теста. Пишется и для анонимов — до регистрации."""
+    """A placement test run. Recorded for guests too, before they sign up."""
 
     __tablename__ = "test_attempts"
 
@@ -56,33 +57,30 @@ class TestAttempt(Base):
     answers_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     correct_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    determined_level: Mapped[Уровень | None] = mapped_column(
-        Enum(Уровень, values_callable=lambda e: [x.value for x in e]), nullable=True
+    determined_level: Mapped[Level | None] = mapped_column(
+        Enum(Level, values_callable=lambda e: [x.value for x in e]), nullable=True
     )
-    # Опыт до начала курса — ответ на вопрос перед тестом:
-    # "none" — никогда не программировал, "other" — писал на другом языке,
-    # "python" — уже пишет на Python. Пусто у попыток, сделанных до появления вопроса.
+    # Prior experience, answered before the test: "none" (never programmed),
+    # "other" (another language) or "python". Empty for older attempts.
     experience: Mapped[str] = mapped_column(String(16), default="", nullable=False)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=сейчас, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User | None"] = relationship(back_populates="test_attempts")
+    user: Mapped[User | None] = relationship(back_populates="test_attempts")
 
     @property
-    def ответы(self) -> list[dict]:
-        return JSONПоле.прочитать(self.answers_json, [])
+    def answers(self) -> list[dict]:
+        return JSONField.load(self.answers_json, [])
 
-    @ответы.setter
-    def ответы(self, значение: list[dict]) -> None:
-        self.answers_json = JSONПоле.записать(значение)
-
-    @property
-    def доля_верных(self) -> float:
-        return self.correct_count / self.total_count if self.total_count else 0.0
+    @answers.setter
+    def answers(self, value: list[dict]) -> None:
+        self.answers_json = JSONField.dump(value)
 
 
-class Course(Base, ВременнЫеМетки):
-    """Персональный курс, собранный под результат теста."""
+class Course(Base, TimestampMixin):
+    """A personal course built from the placement test result."""
 
     __tablename__ = "courses"
 
@@ -90,70 +88,74 @@ class Course(Base, ВременнЫеМетки):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    level: Mapped[Уровень] = mapped_column(
-        Enum(Уровень, values_callable=lambda e: [x.value for x in e]), nullable=False
+    level: Mapped[Level] = mapped_column(
+        Enum(Level, values_callable=lambda e: [x.value for x in e]), nullable=False
     )
     generated_by: Mapped[str] = mapped_column(String(64), default="template", nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
-    user: Mapped["User"] = relationship(back_populates="courses")
-    modules: Mapped[list["Module"]] = relationship(
+    user: Mapped[User] = relationship(back_populates="courses")
+    modules: Mapped[list[Module]] = relationship(
         back_populates="course", cascade="all, delete-orphan", order_by="Module.order_index"
     )
 
     @property
-    def все_уроки(self) -> list["Lesson"]:
-        return [у for м in self.modules for у in м.lessons]
+    def all_lessons(self) -> list[Lesson]:
+        return [lesson for module in self.modules for lesson in module.lessons]
 
     @property
-    def прогресс(self) -> int:
-        """Процент пройденного курса."""
-        уроки = self.все_уроки
-        if not уроки:
+    def progress(self) -> int:
+        """Share of completed lessons, in percent."""
+        lessons = self.all_lessons
+        if not lessons:
             return 0
-        готово = sum(1 for у in уроки if у.is_completed)
-        return round(готово * 100 / len(уроки))
+        done = sum(1 for lesson in lessons if lesson.is_completed)
+        return round(done * 100 / len(lessons))
 
     @property
-    def открытые_уроки(self) -> set[int]:
-        """Идентификаторы уроков, доступных прямо сейчас.
+    def open_lessons(self) -> set[int]:
+        """Ids of the lessons available right now.
 
-        Требование 2.5: дальше нельзя, пока текущий урок не пройден.
-        Открыт первый урок, любой уже пройденный (чтобы вернуться и
-        перечитать), и ровно один следующий за последним пройденным.
+        Requirement 2.5: you cannot move on until the current lesson is done.
+        Open are the first lesson, every completed one (to re-read it) and
+        exactly one lesson after the last completed one.
         """
-        уроки = self.все_уроки
-        открыты: set[int] = set()
-        for номер, урок in enumerate(уроки):
-            if номер == 0 or урок.is_completed or уроки[номер - 1].is_completed:
-                открыты.add(урок.id)
-        return открыты
+        lessons = self.all_lessons
+        opened: set[int] = set()
+        for number, lesson in enumerate(lessons):
+            if number == 0 or lesson.is_completed or lessons[number - 1].is_completed:
+                opened.add(lesson.id)
+        return opened
 
 
 class Module(Base):
-    """Раздел курса — несколько уроков на одну тему."""
+    """A course section: several lessons on one topic."""
 
     __tablename__ = "modules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), index=True
+    )
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
-    course: Mapped["Course"] = relationship(back_populates="modules")
-    lessons: Mapped[list["Lesson"]] = relationship(
+    course: Mapped[Course] = relationship(back_populates="modules")
+    lessons: Mapped[list[Lesson]] = relationship(
         back_populates="module", cascade="all, delete-orphan", order_by="Lesson.order_index"
     )
 
 
 class Lesson(Base):
-    """Урок: короткая теория плюс несколько заданий."""
+    """A lesson: short theory plus a few tasks."""
 
     __tablename__ = "lessons"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    module_id: Mapped[int] = mapped_column(ForeignKey("modules.id", ondelete="CASCADE"), index=True)
+    module_id: Mapped[int] = mapped_column(
+        ForeignKey("modules.id", ondelete="CASCADE"), index=True
+    )
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     theory: Mapped[str] = mapped_column(Text, default="", nullable=False)
@@ -162,62 +164,65 @@ class Lesson(Base):
     is_completed: Mapped[bool] = mapped_column(default=False, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    module: Mapped["Module"] = relationship(back_populates="lessons")
-    tasks: Mapped[list["Task"]] = relationship(
+    module: Mapped[Module] = relationship(back_populates="lessons")
+    tasks: Mapped[list[Task]] = relationship(
         back_populates="lesson", cascade="all, delete-orphan", order_by="Task.order_index"
     )
 
 
 class Task(Base):
-    """Одно задание внутри урока."""
+    """A single task inside a lesson."""
 
     __tablename__ = "tasks"
-    # два процесса могут одновременно взяться наполнять один урок (фон и запрос
-    # пользователя). Уникальность пары «урок + позиция» делает задвоение невозможным.
+    # Two processes may start filling the same lesson at once (the background
+    # prefetch and the user's request). A unique (lesson, position) pair makes
+    # duplicate tasks impossible.
     __table_args__ = (UniqueConstraint("lesson_id", "order_index", name="uq_task_lesson_order"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), index=True)
+    lesson_id: Mapped[int] = mapped_column(
+        ForeignKey("lessons.id", ondelete="CASCADE"), index=True
+    )
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    kind: Mapped[ТипЗадания] = mapped_column(
-        Enum(ТипЗадания, values_callable=lambda e: [x.value for x in e]),
-        default=ТипЗадания.КОД,
+    kind: Mapped[TaskKind] = mapped_column(
+        Enum(TaskKind, values_callable=lambda e: [x.value for x in e]),
+        default=TaskKind.CODE,
         nullable=False,
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     hint: Mapped[str] = mapped_column(Text, default="", nullable=False)
     starter_code: Mapped[str] = mapped_column(Text, default="", nullable=False)
     solution: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    # для code: список {"call": "...", "expect": ...}; для quiz/order: варианты
+    # For code tasks: a list of {"call": "...", "expect": ...}. For quizzes: the options.
     checks_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     options_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
     answer: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     is_completed: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    lesson: Mapped["Lesson"] = relationship(back_populates="tasks")
-    submissions: Mapped[list["Submission"]] = relationship(
+    lesson: Mapped[Lesson] = relationship(back_populates="tasks")
+    submissions: Mapped[list[Submission]] = relationship(
         back_populates="task", cascade="all, delete-orphan"
     )
 
     @property
-    def проверки(self) -> list[dict]:
-        return JSONПоле.прочитать(self.checks_json, [])
+    def checks(self) -> list[dict]:
+        return JSONField.load(self.checks_json, [])
 
-    @проверки.setter
-    def проверки(self, значение: list[dict]) -> None:
-        self.checks_json = JSONПоле.записать(значение)
+    @checks.setter
+    def checks(self, value: list[dict]) -> None:
+        self.checks_json = JSONField.dump(value)
 
     @property
-    def варианты(self) -> list[str]:
-        return JSONПоле.прочитать(self.options_json, [])
+    def options(self) -> list[str]:
+        return JSONField.load(self.options_json, [])
 
-    @варианты.setter
-    def варианты(self, значение: list[str]) -> None:
-        self.options_json = JSONПоле.записать(значение)
+    @options.setter
+    def options(self, value: list[str]) -> None:
+        self.options_json = JSONField.dump(value)
 
 
 class Submission(Base):
-    """Попытка решения. Храним все, чтобы видеть, где люди застревают."""
+    """A solution attempt. All attempts are kept to see where learners get stuck."""
 
     __tablename__ = "submissions"
 
@@ -229,7 +234,9 @@ class Submission(Base):
     output: Mapped[str] = mapped_column(Text, default="", nullable=False)
     error: Mapped[str] = mapped_column(Text, default="", nullable=False)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=сейчас, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
 
-    user: Mapped["User"] = relationship(back_populates="submissions")
-    task: Mapped["Task"] = relationship(back_populates="submissions")
+    user: Mapped[User] = relationship(back_populates="submissions")
+    task: Mapped[Task] = relationship(back_populates="submissions")

@@ -1,12 +1,13 @@
-"""Медали и мемы.
+"""Medals and memes.
 
-Закрывает требования 3.1 (мем после теста) и 3.5 (система достижений),
-а также UC-2 и UC-7.
+Covers requirements 3.1 (a meme after a lesson) and 3.5 (achievements),
+as well as UC-2 and UC-7.
 
-Правило выдачи одно: медаль выдаётся ровно один раз. Это гарантирует не
-код, а уникальный индекс на паре (пользователь, медаль) — параллельные
-запросы не смогут выдать дубль, как и в случае с колесом.
+A medal is awarded exactly once. That is guaranteed not by code but by a
+unique index on the (user, medal) pair: parallel requests cannot award a
+duplicate, just like with the wheel.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,182 +20,259 @@ from sqlalchemy.orm import Session
 from app.models import (
     Achievement,
     CoinTransaction,
+    ConditionType,
+    Course,
     Lesson,
     Meme,
     Module,
-    Course,
     Submission,
     TestAttempt,
     User,
     UserAchievement,
     UserItem,
     WheelSpin,
-    ТипУсловия,
 )
 
-лог = logging.getLogger("codehog.awards")
+logger = logging.getLogger("codehog.awards")
 
-# (код, название, описание, значок, условие, порог, порядок)
-КАТАЛОГ_МЕДАЛЕЙ = [
-    ("first_test",   "Первый шаг",     "Пройден вводный тест на уровень",        "🎯", ТипУсловия.ТЕСТ,        1,    10),
-    ("first_lesson", "Начало положено", "Первый урок пройден полностью",          "🌱", ТипУсловия.УРОКИ,       1,    20),
-    ("lessons_10",   "Десятка",        "Пройдено 10 уроков",                      "📚", ТипУсловия.УРОКИ,       10,   30),
-    ("lessons_50",   "Полста",         "Пройдено 50 уроков",                      "🏛", ТипУсловия.УРОКИ,       50,   40),
-    ("streak_7",     "Неделя огня",    "Семь дней занятий подряд",                "🔥", ТипУсловия.СТРИК,       7,    50),
-    ("streak_30",    "Месяц огня",     "Тридцать дней занятий подряд",            "🌋", ТипУсловия.СТРИК,       30,   60),
-    ("coins_100",    "Первая сотня",   "Заработано 100 монет за всё время",       "🪙", ТипУсловия.МОНЕТЫ,      100,  70),
-    ("coins_1000",   "Тысячник",       "Заработано 1000 монет за всё время",      "💰", ТипУсловия.МОНЕТЫ,      1000, 80),
-    ("items_3",      "Модник",         "В коллекции три ежа",                     "🎩", ТипУсловия.ПРЕДМЕТЫ,    3,    90),
-    ("wheel_5",      "Везунчик",       "Колесо прокручено пять раз",              "🎡", ТипУсловия.КОЛЕСО,      5,    100),
-    ("flawless_5",   "Без осечек",     "Пять заданий решено с первой попытки",    "✨", ТипУсловия.БЕЗ_ОШИБОК,  5,    110),
-]
+# (code, title, description, icon, condition, threshold, sort order)
+MEDAL_CATALOG = [
+    (
+        "first_test",
+        "Первый шаг",
+        "Пройден вводный тест на уровень",
+        "🎯",
+        ConditionType.TEST,
+        1,
+        10,
+    ),
+    (
+        "first_lesson",
+        "Начало положено",
+        "Первый урок пройден полностью",
+        "🌱",
+        ConditionType.LESSONS,
+        1,
+        20,
+    ),
+    ("lessons_10", "Десятка", "Пройдено 10 уроков", "📚", ConditionType.LESSONS, 10, 30),
+    ("lessons_50", "Полста", "Пройдено 50 уроков", "🏛", ConditionType.LESSONS, 50, 40),
+    ("streak_7", "Неделя огня", "Семь дней занятий подряд", "🔥", ConditionType.STREAK, 7, 50),
+    (
+        "streak_30",
+        "Месяц огня",
+        "Тридцать дней занятий подряд",
+        "🌋",
+        ConditionType.STREAK,
+        30,
+        60,
+    ),
+    (
+        "coins_100",
+        "Первая сотня",
+        "Заработано 100 монет за всё время",
+        "🪙",
+        ConditionType.COINS,
+        100,
+        70,
+    ),
+    (
+        "coins_1000",
+        "Тысячник",
+        "Заработано 1000 монет за всё время",
+        "💰",
+        ConditionType.COINS,
+        1000,
+        80,
+    ),
+    ("items_3", "Модник", "В коллекции три ежа", "🎩", ConditionType.ITEMS, 3, 90),
+    ("wheel_5", "Везунчик", "Колесо прокручено пять раз", "🎡", ConditionType.WHEEL, 5, 100),
+    (
+        "flawless_5",
+        "Без осечек",
+        "Пять заданий решено с первой попытки",
+        "✨",
+        ConditionType.FLAWLESS,
+        5,
+        110,
+    ),
+]  # noqa: E501
 
-# Мемы — данные, а не код. Подборку можно заменить целиком, не трогая логику.
-КАТАЛОГ_МЕМОВ = [
+# Memes are data, not code: the whole set can be replaced without touching the logic.
+MEME_CATALOG = [
     ("works_local", "/static/img/memes/works-local.webp", "Работает на моей машине"),
-    ("semicolon",   "/static/img/memes/semicolon.webp",   "Три часа искал опечатку"),
-    ("it_compiles", "/static/img/memes/it-compiles.webp", "Заработало с первого раза. Подозрительно"),
-    ("indent",      "/static/img/memes/indent.webp",      "Python и отступы"),
-    ("stack",       "/static/img/memes/stack.webp",       "Скопировал со Stack Overflow"),
-    ("off_by_one",  "/static/img/memes/off-by-one.webp",  "Ошибка на единицу"),
+    ("semicolon", "/static/img/memes/semicolon.webp", "Три часа искал опечатку"),
+    (
+        "it_compiles",
+        "/static/img/memes/it-compiles.webp",
+        "Заработало с первого раза. Подозрительно",
+    ),
+    ("indent", "/static/img/memes/indent.webp", "Python и отступы"),
+    ("stack", "/static/img/memes/stack.webp", "Скопировал со Stack Overflow"),
+    ("off_by_one", "/static/img/memes/off-by-one.webp", "Ошибка на единицу"),
 ]
 
 
-def засеять_награды(сессия: Session) -> tuple[int, int]:
-    """Добавляет недостающие медали и мемы. Повторный вызов безопасен.
+def seed_rewards(session: Session) -> tuple[int, int]:
+    """Add missing medals and memes. Safe to call repeatedly.
 
-    У уже существующих медалей и мемов тексты и адрес картинки сверяются
-    с каталогом: правка в коде доезжает до базы при следующем запуске.
+    Existing medals and memes are synced with the catalog (texts and image
+    URL), so an edit in code reaches the database on the next start.
+    Returns the number of medals and memes added.
     """
-    медалей = мемов = 0
-    for код, имя, описание, значок, условие, порог, порядок in КАТАЛОГ_МЕДАЛЕЙ:
-        медаль = сессия.scalar(select(Achievement).where(Achievement.code == код))
-        if медаль is not None:
-            медаль.title, медаль.description, медаль.icon = имя, описание, значок
+    medals_added = memes_added = 0
+    for code, title, description, icon, condition, threshold, order in MEDAL_CATALOG:
+        medal = session.scalar(select(Achievement).where(Achievement.code == code))
+        if medal is not None:
+            medal.title, medal.description, medal.icon = title, description, icon
             continue
-        сессия.add(Achievement(
-            code=код, title=имя, description=описание, icon=значок,
-            condition_type=условие, target_value=порог, sort_order=порядок,
-        ))
-        медалей += 1
-    for порядок, (код, ссылка, подпись) in enumerate(КАТАЛОГ_МЕМОВ, start=1):
-        мем = сессия.scalar(select(Meme).where(Meme.code == код))
-        if мем is not None:
-            мем.image_url = ссылка
+        session.add(
+            Achievement(
+                code=code,
+                title=title,
+                description=description,
+                icon=icon,
+                condition_type=condition,
+                target_value=threshold,
+                sort_order=order,
+            )
+        )
+        medals_added += 1
+    for order, (code, url, caption) in enumerate(MEME_CATALOG, start=1):
+        meme = session.scalar(select(Meme).where(Meme.code == code))
+        if meme is not None:
+            meme.image_url = url
             continue
-        сессия.add(Meme(code=код, image_url=ссылка, caption=подпись, sort_order=порядок * 10))
-        мемов += 1
-    сессия.commit()
-    return медалей, мемов
+        session.add(Meme(code=code, image_url=url, caption=caption, sort_order=order * 10))
+        memes_added += 1
+    session.commit()
+    return medals_added, memes_added
 
 
-class Медали:
-    """Считает текущие показатели ученика и выдаёт заслуженные медали."""
+class MedalService:
+    """Measures a learner's progress and awards the medals they have earned."""
 
-    def __init__(self, сессия: Session) -> None:
-        self.сессия = сессия
+    def __init__(self, session: Session) -> None:
+        self.session = session
 
-    # --- измерения ---
+    # --- metrics ---
 
-    def _уроков_пройдено(self, юзер: User) -> int:
-        return self.сессия.scalar(
-            select(func.count(Lesson.id))
-            .join(Module, Lesson.module_id == Module.id)
-            .join(Course, Module.course_id == Course.id)
-            .where(Course.user_id == юзер.id, Lesson.is_completed.is_(True))
-        ) or 0
+    def _lessons_completed(self, user: User) -> int:
+        return (
+            self.session.scalar(
+                select(func.count(Lesson.id))
+                .join(Module, Lesson.module_id == Module.id)
+                .join(Course, Module.course_id == Course.id)
+                .where(Course.user_id == user.id, Lesson.is_completed.is_(True))
+            )
+            or 0
+        )
 
-    def _монет_заработано(self, юзер: User) -> int:
-        """Только приход. Покупки баланс уменьшают, но заслугу не отменяют."""
-        return self.сессия.scalar(
-            select(func.coalesce(func.sum(CoinTransaction.amount), 0))
-            .where(CoinTransaction.user_id == юзер.id, CoinTransaction.amount > 0)
-        ) or 0
+    def _coins_earned(self, user: User) -> int:
+        """Income only. Purchases lower the balance but do not cancel the achievement."""
+        return (
+            self.session.scalar(
+                select(func.coalesce(func.sum(CoinTransaction.amount), 0)).where(
+                    CoinTransaction.user_id == user.id, CoinTransaction.amount > 0
+                )
+            )
+            or 0
+        )
 
-    def _без_ошибок(self, юзер: User) -> int:
-        """Задания, где единственная попытка оказалась верной."""
-        по_заданию = (
+    def _flawless_tasks(self, user: User) -> int:
+        """Tasks whose only attempt was correct."""
+        by_task = (
             select(
                 Submission.task_id.label("task_id"),
-                func.count(Submission.id).label("всего"),
-                func.sum(func.cast(Submission.passed, Integer)).label("верных"),
+                func.count(Submission.id).label("attempts"),
+                func.sum(func.cast(Submission.passed, Integer)).label("passed"),
             )
-            .where(Submission.user_id == юзер.id)
+            .where(Submission.user_id == user.id)
             .group_by(Submission.task_id)
             .subquery()
         )
-        return self.сессия.scalar(
-            select(func.count()).select_from(по_заданию)
-            .where(по_заданию.c.всего == 1, по_заданию.c.верных == 1)
-        ) or 0
+        return (
+            self.session.scalar(
+                select(func.count())
+                .select_from(by_task)
+                .where(by_task.c.attempts == 1, by_task.c.passed == 1)
+            )
+            or 0
+        )
 
-    def показатели(self, юзер: User) -> dict[ТипУсловия, int]:
-        сч = self.сессия.scalar
+    def metrics(self, user: User) -> dict[ConditionType, int]:
+        """The learner's current value for every medal condition."""
+        count = self.session.scalar
         return {
-            ТипУсловия.ТЕСТ: сч(
+            ConditionType.TEST: count(
                 select(func.count(TestAttempt.id)).where(
-                    TestAttempt.user_id == юзер.id, TestAttempt.determined_level.is_not(None)
+                    TestAttempt.user_id == user.id, TestAttempt.determined_level.is_not(None)
                 )
-            ) or 0,
-            ТипУсловия.УРОКИ: self._уроков_пройдено(юзер),
-            ТипУсловия.СТРИК: юзер.streak_best,
-            ТипУсловия.МОНЕТЫ: self._монет_заработано(юзер),
-            ТипУсловия.ПРЕДМЕТЫ: сч(
-                select(func.count(UserItem.id)).where(UserItem.user_id == юзер.id)
-            ) or 0,
-            ТипУсловия.КОЛЕСО: сч(
-                select(func.count(WheelSpin.id)).where(WheelSpin.user_id == юзер.id)
-            ) or 0,
-            ТипУсловия.БЕЗ_ОШИБОК: self._без_ошибок(юзер),
+            )
+            or 0,
+            ConditionType.LESSONS: self._lessons_completed(user),
+            ConditionType.STREAK: user.streak_best,
+            ConditionType.COINS: self._coins_earned(user),
+            ConditionType.ITEMS: count(
+                select(func.count(UserItem.id)).where(UserItem.user_id == user.id)
+            )
+            or 0,
+            ConditionType.WHEEL: count(
+                select(func.count(WheelSpin.id)).where(WheelSpin.user_id == user.id)
+            )
+            or 0,
+            ConditionType.FLAWLESS: self._flawless_tasks(user),
         }
 
-    # --- выдача ---
+    # --- awarding ---
 
-    def проверить(self, юзер: User) -> list[Achievement]:
-        """Выдаёт все медали, условия которых уже выполнены. Возвращает новые."""
-        уже = {
-            строка.achievement_id
-            for строка in self.сессия.scalars(
-                select(UserAchievement).where(UserAchievement.user_id == юзер.id)
+    def check(self, user: User) -> list[Achievement]:
+        """Award every medal whose condition is already met. Returns the new ones."""
+        already = {
+            row.achievement_id
+            for row in self.session.scalars(
+                select(UserAchievement).where(UserAchievement.user_id == user.id)
             )
         }
-        значения = self.показатели(юзер)
-        новые: list[Achievement] = []
-        for медаль in self.сессия.scalars(select(Achievement).order_by(Achievement.sort_order)):
-            if медаль.id in уже:
+        values = self.metrics(user)
+        new_medals: list[Achievement] = []
+        for medal in self.session.scalars(select(Achievement).order_by(Achievement.sort_order)):
+            if medal.id in already:
                 continue
-            if значения.get(медаль.condition_type, 0) < медаль.target_value:
+            if values.get(medal.condition_type, 0) < medal.target_value:
                 continue
-            self.сессия.add(UserAchievement(user_id=юзер.id, achievement_id=медаль.id))
+            self.session.add(UserAchievement(user_id=user.id, achievement_id=medal.id))
             try:
-                self.сессия.flush()
+                self.session.flush()
             except IntegrityError:
-                # параллельный запрос успел раньше — это нормально, медаль уже есть
-                self.сессия.rollback()
+                # A parallel request got there first; the medal is already awarded.
+                self.session.rollback()
                 continue
-            новые.append(медаль)
-        if новые:
-            self.сессия.commit()
-            лог.info("медали выданы %s: %s", юзер.username, [м.code for м in новые])
-        return новые
+            new_medals.append(medal)
+        if new_medals:
+            self.session.commit()
+            logger.info(
+                "medals awarded to %s: %s", user.username, [medal.code for medal in new_medals]
+            )
+        return new_medals
 
-    def все_с_отметкой(self, юзер: User) -> list[tuple[Achievement, bool, int]]:
-        """Весь каталог с признаком «получена» и текущим прогрессом — для профиля."""
-        полученные = {
-            с.achievement_id: с
-            for с in self.сессия.scalars(
-                select(UserAchievement).where(UserAchievement.user_id == юзер.id)
+    def all_with_status(self, user: User) -> list[tuple[Achievement, bool, int]]:
+        """The whole catalog with an "earned" flag and current progress, for the profile."""
+        earned = {
+            row.achievement_id
+            for row in self.session.scalars(
+                select(UserAchievement).where(UserAchievement.user_id == user.id)
             )
         }
-        значения = self.показатели(юзер)
-        итог = []
-        for медаль in self.сессия.scalars(select(Achievement).order_by(Achievement.sort_order)):
-            текущее = значения.get(медаль.condition_type, 0)
-            итог.append((медаль, медаль.id in полученные, min(текущее, медаль.target_value)))
-        return итог
+        values = self.metrics(user)
+        result = []
+        for medal in self.session.scalars(select(Achievement).order_by(Achievement.sort_order)):
+            current = values.get(medal.condition_type, 0)
+            result.append((medal, medal.id in earned, min(current, medal.target_value)))
+        return result
 
 
-def случайный_мем(сессия: Session) -> Meme | None:
-    """Мем после пройденного урока. Выбор на сервере, как и приз колеса."""
-    мемы = list(сессия.scalars(select(Meme).where(Meme.is_active.is_(True))))
-    return мемы[secrets.randbelow(len(мемы))] if мемы else None
+def random_meme(session: Session) -> Meme | None:
+    """A meme for a completed lesson. Picked on the server, like the wheel prize."""
+    memes = list(session.scalars(select(Meme).where(Meme.is_active.is_(True))))
+    return memes[secrets.randbelow(len(memes))] if memes else None
