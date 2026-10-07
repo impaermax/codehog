@@ -139,7 +139,10 @@ class Песочница:
 
         программа = (
             f"КОД_УЧЕНИКА = {код!r}\n"
-            f"ПРОВЕРКИ = {json.dumps(проверки, ensure_ascii=False)}\n"
+            # проверки передаются строкой JSON и разбираются внутри: вставленный
+            # как есть JSON — это не Python, и true/false/null в ожидаемых
+            # значениях роняли запуск с NameError
+            f"ПРОВЕРКИ = __import__('json').loads({json.dumps(проверки, ensure_ascii=False)!r})\n"
             f"ЛИМИТ_ВЫВОДА = {settings.code_output_limit}\n"
             f"ПРОСТРАНСТВО = {{'__name__': '__main__'}}\n"
             + textwrap.dedent(ОБВЯЗКА)
