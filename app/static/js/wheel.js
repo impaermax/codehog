@@ -1,54 +1,56 @@
-// Колесо: приз определяет сервер, браузер только показывает анимацию.
+// Wheel of fortune: the server picks the prize, the browser only animates it.
 (() => {
-  const БАЗА = window.БАЗА || "";
-  const окно = document.getElementById("окно-колеса");
-  const колесо = document.getElementById("колесо");
-  const крутить = document.getElementById("крутить");
-  const итог = document.getElementById("итог-колеса");
-  const баланс = document.getElementById("баланс");
-  if (!окно) return;
+  const BASE_PATH = window.BASE_PATH || "";
+  const SECTOR_COUNT = 5;
+  const SPIN_DURATION_MS = 4100;
 
-  let угол = 0;
-  let вРаботе = false;
+  const modal = document.getElementById("wheel-modal");
+  if (!modal) return;
+  const wheel = document.getElementById("wheel");
+  const spinButton = document.getElementById("spin-btn");
+  const result = document.getElementById("wheel-result");
+  const balance = document.getElementById("balance");
 
-  document.getElementById("открыть-колесо").onclick = () => окно.classList.add("видно");
-  document.getElementById("закрыть-колесо").onclick = () => окно.classList.remove("видно");
-  окно.onclick = (e) => { if (e.target === окно) окно.classList.remove("видно"); };
+  let angle = 0;
+  let spinning = false;
 
-  крутить.onclick = async () => {
-    if (вРаботе) return;
-    вРаботе = true;
-    крутить.disabled = true;
+  document.getElementById("open-wheel").onclick = () => modal.classList.add("visible");
+  document.getElementById("close-wheel").onclick = () => modal.classList.remove("visible");
+  modal.onclick = (event) => { if (event.target === modal) modal.classList.remove("visible"); };
 
-    let данные;
+  spinButton.onclick = async () => {
+    if (spinning) return;
+    spinning = true;
+    spinButton.disabled = true;
+
+    let data;
     try {
-      const ответ = await fetch(`${БАЗА}/hog/wheel/spin`, { method: "POST" });
-      данные = await ответ.json();
-      if (!ответ.ok) throw ошибкаОтвета(ответ, данные);
-    } catch (e) {
-      // кнопку возвращаем, иначе после сбоя колесо не крутится до перезагрузки
-      вРаботе = false;
-      крутить.disabled = false;
-      if (ошибкаСвязи(e)) {
-        показатьОшибку(текстОшибки(e), () => крутить.click());
+      const response = await fetch(`${BASE_PATH}/hog/wheel/spin`, { method: "POST" });
+      data = await response.json();
+      if (!response.ok) throw responseError(response, data);
+    } catch (error) {
+      // Re-enable the button, otherwise the wheel stays stuck until a reload
+      spinning = false;
+      spinButton.disabled = false;
+      if (isNetworkError(error)) {
+        showError(errorText(error), () => spinButton.click());
       } else {
-        итог.textContent = e.message;
+        result.textContent = error.message;
       }
       return;
     }
 
-    // сектора идут по кругу; докручиваем несколько полных оборотов для эффекта
-    const секторов = 5;
-    const шаг = 360 / секторов;
-    угол += 360 * 4 + (секторов - данные.sector) * шаг;
-    колесо.style.transform = `rotate(${угол}deg)`;
+    // Sectors go round the circle; add a few full turns for effect
+    const sectorAngle = 360 / SECTOR_COUNT;
+    angle += 360 * 4 + (SECTOR_COUNT - data.sector) * sectorAngle;
+    wheel.style.transform = `rotate(${angle}deg)`;
 
     setTimeout(() => {
-      итог.innerHTML = `Выпало <b style="color:var(--золото)">${данные.coins_won}</b> монет · ` +
-                       `осталось вращений: <b>${данные.spins_left}</b>`;
-      if (баланс) баланс.textContent = данные.coins;
-      крутить.disabled = данные.spins_left <= 0;
-      вРаботе = false;
-    }, 4100);
+      result.innerHTML = `Выпало <b style="color:var(--gold)">${data.coins_won}</b> монет · ` +
+                         `осталось вращений: <b>${data.spins_left}</b>`;
+      if (balance) balance.textContent = data.coins;
+      spinButton.disabled = data.spins_left <= 0;
+      spinning = false;
+    }, SPIN_DURATION_MS);
   };
 })();

@@ -1,120 +1,106 @@
-"""Переводы интерфейса. Русский по умолчанию, английский и чеченский.
+"""Interface translations. Russian by default, plus English and Chechen.
 
-Ключей намеренно немного: переведён первый экран, шапка и кнопки — то, что видит
-человек до регистрации. Всё, чего нет в словаре, показывается по-русски,
-поэтому добавление языка ничего не ломает.
+Only a few keys are translated on purpose: the landing page, the header and
+the buttons, which is what a visitor sees before signing up. Anything missing
+from a dictionary is shown in Russian, so adding a language breaks nothing.
 """
+
 from __future__ import annotations
 
-ЯЗЫК_ПО_УМОЛЧАНИЮ = "ru"
+DEFAULT_LANGUAGE = "ru"
 
-ЯЗЫКИ = {
+LANGUAGES = {
     "ru": "РУС",
     "en": "ENG",
-    "ce": "НОХЧ",   # пасхалка: нохчийн мотт
+    "ce": "НОХЧ",  # an easter egg: the Chechen language
 }
 
-СЛОВАРЬ: dict[str, dict[str, str]] = {
+TRANSLATIONS: dict[str, dict[str, str]] = {
     "ru": {
-        "герой.заголовок1": "Освой Python.",
-        "герой.заголовок2": "Собери",
-        "герой.акцент": "всех ежей",
-        "герой.подзаголовок": "Шесть заданий определят твой уровень. Дальше — короткие уроки "
-                             "ровно под тебя, монеты за практику и 54 ежа в коллекции.",
-        "герой.кнопка": "Пройти тест →",
-        "герой.подкнопкой": "Без регистрации · 5–8 минут · можно с нуля",
-        "шаг.тест": "Тест на уровень",
-        "шаг.курс": "Личный курс",
-        "шаг.практика": "Практика и награды",
-        "ступень.новичок": "Новичок",
-        "ступень.тренд": "В тренде",
-        "ступень.люкс": "Люкс",
-        "ступень.старт": "старт",
-        "ступень.иглы": "неоновые иглы",
-        "ступень.тачка": "хог-мобиль",
-        "блок.курс.титул": "Курс под твой уровень",
-        "блок.курс.текст": "Не общий поток для всех. После теста маршрут собирается "
-                           "по твоим пробелам — от переменных до декораторов.",
-        "блок.код.титул": "Код проверяется по-настоящему",
-        "блок.код.текст": "Пишешь функцию — она запускается и прогоняется тестами. Видно, "
-                          "что вернулось и где именно разошлось с ожидаемым.",
-        "блок.монеты.титул": "Монеты и ёж",
-        "блок.монеты.текст": "За уроки и серии дней падают монеты. На них покупаются скины ежа, "
-                             "а каждый пройденный модуль открывает новый уровень коллекции.",
-        "шапка.войти": "Войти",
-        "шапка.выйти": "Выйти",
-        "шапка.магазин": "Магазин",
-        "шапка.панель": "Панель",
+        "hero.title1": "Освой Python.",
+        "hero.title2": "Собери",
+        "hero.accent": "всех ежей",
+        "hero.subtitle": "Шесть заданий определят твой уровень. Дальше — короткие уроки "
+        "ровно под тебя, монеты за практику и 54 ежа в коллекции.",
+        "hero.button": "Пройти тест →",
+        "hero.note": "Без регистрации · 5–8 минут · можно с нуля",
+        "step.test": "Тест на уровень",
+        "step.course": "Личный курс",
+        "step.practice": "Практика и награды",
+        "card.course.title": "Курс под твой уровень",
+        "card.course.text": "Не общий поток для всех. После теста маршрут собирается "
+        "по твоим пробелам — от переменных до декораторов.",
+        "card.code.title": "Код проверяется по-настоящему",
+        "card.code.text": "Пишешь функцию — она запускается и прогоняется тестами. Видно, "
+        "что вернулось и где именно разошлось с ожидаемым.",
+        "card.coins.title": "Монеты и ёж",
+        "card.coins.text": "За уроки и серии дней падают монеты. На них покупаются скины ежа, "
+        "а каждый пройденный модуль открывает новый уровень коллекции.",
+        "header.login": "Войти",
+        "header.logout": "Выйти",
+        "header.profile": "Профиль",
+        "header.shop": "Магазин",
+        "header.admin": "Панель",
     },
     "en": {
-        "герой.заголовок1": "Learn Python.",
-        "герой.заголовок2": "Collect",
-        "герой.акцент": "every hedgehog",
-        "герой.подзаголовок": "Six questions find your level. Then short lessons built for you, "
-                             "coins for practice, and 54 hedgehogs to collect.",
-        "герой.кнопка": "Take the test →",
-        "герой.подкнопкой": "No sign-up · 5–8 minutes · beginners welcome",
-        "шаг.тест": "Placement test",
-        "шаг.курс": "Personal course",
-        "шаг.практика": "Practice and rewards",
-        "ступень.новичок": "Rookie",
-        "ступень.тренд": "Trending",
-        "ступень.люкс": "Luxury",
-        "ступень.старт": "start",
-        "ступень.иглы": "neon quills",
-        "ступень.тачка": "hog-mobile",
-        "блок.курс.титул": "A course for your level",
-        "блок.курс.текст": "Not one stream for everyone. After the test the path is built "
-                           "around your gaps — from variables to decorators.",
-        "блок.код.титул": "Your code actually runs",
-        "блок.код.текст": "Write a function and it is executed against real tests. You see what "
-                          "it returned and exactly where it differs from the expected value.",
-        "блок.монеты.титул": "Coins and the hedgehog",
-        "блок.монеты.текст": "Lessons and daily streaks drop coins. Spend them on hedgehog skins — "
-                             "every finished module unlocks a new tier of the collection.",
-        "шапка.войти": "Sign in",
-        "шапка.выйти": "Sign out",
-        "шапка.магазин": "Shop",
-        "шапка.панель": "Admin",
+        "hero.title1": "Learn Python.",
+        "hero.title2": "Collect",
+        "hero.accent": "every hedgehog",
+        "hero.subtitle": "Six questions find your level. Then short lessons built for you, "
+        "coins for practice, and 54 hedgehogs to collect.",
+        "hero.button": "Take the test →",
+        "hero.note": "No sign-up · 5–8 minutes · beginners welcome",
+        "step.test": "Placement test",
+        "step.course": "Personal course",
+        "step.practice": "Practice and rewards",
+        "card.course.title": "A course for your level",
+        "card.course.text": "Not one stream for everyone. After the test the path is built "
+        "around your gaps — from variables to decorators.",
+        "card.code.title": "Your code actually runs",
+        "card.code.text": "Write a function and it is executed against real tests. You see what "
+        "it returned and exactly where it differs from the expected value.",
+        "card.coins.title": "Coins and the hedgehog",
+        "card.coins.text": "Lessons and daily streaks drop coins. Spend them on hedgehog skins — "
+        "every finished module unlocks a new tier of the collection.",
+        "header.login": "Sign in",
+        "header.logout": "Sign out",
+        "header.profile": "Profile",
+        "header.shop": "Shop",
+        "header.admin": "Admin",
     },
     "ce": {
-        "герой.заголовок1": "Python Iамае.",
-        "герой.заголовок2": "Кечбе хьайн",
-        "герой.акцент": "кибер-зу",
-        "герой.подзаголовок": "Ялх хаттаро хьан тIегIа гойту. ТIаккха — хьуна тIехь жима дешарш, "
-                             "болх барна ахча, а хьайн куьйгашца кечйина зу.",
-        "герой.кнопка": "Тест яха →",
-        "герой.подкнопкой": "Регистраци йоцуш · 5–8 минот · дуьххьара а мега",
-        "шаг.тест": "ТIегIан тест",
-        "шаг.курс": "Шен курс",
-        "шаг.практика": "Практика а, совгIаташ а",
-        "ступень.новичок": "Керла",
-        "ступень.тренд": "Тренда чохь",
-        "ступень.люкс": "Люкс",
-        "ступень.старт": "юьхь",
-        "ступень.иглы": "неонан заз",
-        "ступень.тачка": "хог-мобиль",
-        "блок.курс.титул": "Хьан тIегIане курс",
-        "блок.курс.текст": "Массарна цхьаъ доцуш. Тест яьккхича, некъ хьан меттигех схьаоьцу — "
-                           "переменнойх дуьйна декораторашка кхаччалц.",
-        "блок.код.титул": "Код бакъдолуш толлу",
-        "блок.код.текст": "Ахьа функци язъеча, иза чекхйолу а, тесташца толлу а. Гуш ду цо "
-                          "хIун жоп делла а, мичахь хийцалуш ду а.",
-        "блок.монеты.титул": "Ахча а, зу а",
-        "шапка.войти": "ЧуьраваллаI",
-        "шапка.выйти": "Аравала",
-        "шапка.магазин": "Туька",
-        "шапка.панель": "Панель",
+        "hero.title1": "Python Iамае.",
+        "hero.title2": "Кечбе хьайн",
+        "hero.accent": "кибер-зу",
+        "hero.subtitle": "Ялх хаттаро хьан тIегIа гойту. ТIаккха — хьуна тIехь жима дешарш, "
+        "болх барна ахча, а хьайн куьйгашца кечйина зу.",
+        "hero.button": "Тест яха →",
+        "hero.note": "Регистраци йоцуш · 5–8 минот · дуьххьара а мега",
+        "step.test": "ТIегIан тест",
+        "step.course": "Шен курс",
+        "step.practice": "Практика а, совгIаташ а",
+        "card.course.title": "Хьан тIегIане курс",
+        "card.course.text": "Массарна цхьаъ доцуш. Тест яьккхича, некъ хьан меттигех схьаоьцу — "
+        "переменнойх дуьйна декораторашка кхаччалц.",
+        "card.code.title": "Код бакъдолуш толлу",
+        "card.code.text": "Ахьа функци язъеча, иза чекхйолу а, тесташца толлу а. Гуш ду цо "
+        "хIун жоп делла а, мичахь хийцалуш ду а.",
+        "card.coins.title": "Ахча а, зу а",
+        "header.login": "ЧуьраваллаI",
+        "header.logout": "Аравала",
+        "header.shop": "Туька",
+        "header.admin": "Панель",
     },
 }
 
 
-def перевод(язык: str) -> dict[str, str]:
-    """Словарь языка поверх русского: непереведённое остаётся по-русски."""
-    основа = dict(СЛОВАРЬ[ЯЗЫК_ПО_УМОЛЧАНИЮ])
-    основа.update(СЛОВАРЬ.get(язык, {}))
-    return основа
+def get_translations(lang: str) -> dict[str, str]:
+    """The language's dictionary on top of Russian: untranslated keys stay Russian."""
+    result = dict(TRANSLATIONS[DEFAULT_LANGUAGE])
+    result.update(TRANSLATIONS.get(lang, {}))
+    return result
 
 
-def выбрать(значение: str | None) -> str:
-    return значение if значение in ЯЗЫКИ else ЯЗЫК_ПО_УМОЛЧАНИЮ
+def pick_language(value: str | None) -> str:
+    """A supported language code, or the default one."""
+    return value if value in LANGUAGES else DEFAULT_LANGUAGE

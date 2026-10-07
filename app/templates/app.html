@@ -1,56 +1,54 @@
 {% extends "base.html" %}
-{% from "_персонаж.html" import персонаж %}
-{% block заголовок %}Мой курс — CodeHogwarts{% endblock %}
-{% block содержимое %}
+{% from "_hedgehog.html" import hedgehog %}
+{% block title %}Мой курс — CodeHogwarts{% endblock %}
+{% block content %}
 
-{% if request.query_params.get('закрыт') %}
-  <div class="инфо-блок" style="margin:16px 0">
+{% if request.query_params.get('locked') %}
+  <div class="alert-info" style="margin:16px 0">
     Этот урок пока закрыт. Сначала пройди предыдущий.
   </div>
 {% endif %}
 
-<section class="сетка две" style="padding:24px 0; align-items:start">
-  <div class="карта">
-    <h2 style="margin-top:0">{{ курс.title }}</h2>
-    <p class="тише">{{ курс.summary }}</p>
-    <div class="полоса"><i style="width:{{ курс.прогресс }}%"></i></div>
-    <div class="тише">Пройдено {{ курс.прогресс }}% · ранг {{ user.ранг }}</div>
+<section class="grid two" style="padding:24px 0; align-items:start">
+  <div class="card">
+    <h2 style="margin-top:0">{{ course.title }}</h2>
+    <p class="muted">{{ course.summary }}</p>
+    <div class="progress"><i style="width:{{ course.progress }}%"></i></div>
+    <div class="muted">Пройдено {{ course.progress }}% · ранг {{ user.rank }}</div>
   </div>
 
-  <div class="карта центр">
-    {{ персонаж(надето, 200) }}
+  <div class="card center">
+    {{ hedgehog(equipped, 200) }}
     <div style="margin-top:10px">
       <b>{{ user.username }}</b>
-      <div class="тише">🔥 серия {{ user.streak_current }} дн. · рекорд {{ user.streak_best }}</div>
+      <div class="muted">🔥 серия {{ user.streak_current }} дн. · рекорд {{ user.streak_best }}</div>
     </div>
     <div style="margin-top:14px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
-      <a class="кнопка тихая" href="{{ база }}/shop">Магазин</a>
-      <button class="кнопка" id="открыть-колесо" {% if not вращений %}disabled{% endif %}>
-        Колесо{% if вращений %} ({{ вращений }}){% endif %}
+      <a class="btn ghost" href="{{ base_path }}/shop">Магазин</a>
+      <button class="btn" id="open-wheel" {% if not spins %}disabled{% endif %}>
+        Колесо{% if spins %} ({{ spins }}){% endif %}
       </button>
     </div>
   </div>
 </section>
 
-{% set открытые = курс.открытые_уроки %}
+{% set open_lessons = course.open_lessons %}
 <section style="padding-bottom:40px">
-  {% for модуль in курс.modules %}
-    <div class="модуль">
-      <h3>{{ loop.index }}. {{ модуль.title }}</h3>
-      <p>{{ модуль.description }}</p>
-      <div class="уроки">
-        {% for урок in модуль.lessons %}
-          {% set доступен = урок.id in открытые %}
-          {% if доступен %}
-            <a class="урок {{ 'готов' if урок.is_completed }}" href="{{ база }}/lesson/{{ урок.id }}">
-              <b>{{ '✓' if урок.is_completed else loop.index }}</b>
-              <span>{{ урок.title }}</span>
+  {% for module in course.modules %}
+    <div class="module">
+      <h3>{{ loop.index }}. {{ module.title }}</h3>
+      <p>{{ module.description }}</p>
+      <div class="lessons">
+        {% for lesson in module.lessons %}
+          {% if lesson.id in open_lessons %}
+            <a class="lesson {{ 'done' if lesson.is_completed }}" href="{{ base_path }}/lesson/{{ lesson.id }}">
+              <b>{{ '✓' if lesson.is_completed else loop.index }}</b>
+              <span>{{ lesson.title }}</span>
             </a>
           {% else %}
-            <div class="урок закрыт" title="Сначала пройди предыдущий урок"
-                 aria-disabled="true">
+            <div class="lesson locked" title="Сначала пройди предыдущий урок" aria-disabled="true">
               <b>🔒</b>
-              <span>{{ урок.title }}</span>
+              <span>{{ lesson.title }}</span>
             </div>
           {% endif %}
         {% endfor %}
@@ -59,39 +57,39 @@
   {% endfor %}
 </section>
 
-<div class="награда" id="окно-колеса">
-  <div class="окно">
+<div class="modal" id="wheel-modal">
+  <div class="dialog">
     <h2 style="margin-top:0">Колесо удачи</h2>
-    <div class="колесо-обёртка">
-      <div class="стрелка"></div>
-      <svg class="колесо" id="колесо" viewBox="0 0 200 200">
-        {% set цвета = ['#35E0A1', '#94BDFF', '#F3BE57', '#FFC56D', '#FF8694'] %}
-        {% set всего = сектора | sum(attribute=1) %}
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <svg class="wheel" id="wheel" viewBox="0 0 200 200">
+        {% set colors = ['#35E0A1', '#94BDFF', '#F3BE57', '#FFC56D', '#FF8694'] %}
+        {% set total_weight = sectors | sum(attribute=1) %}
         <circle cx="100" cy="100" r="96" fill="#0B1013" stroke="#2D3B43" stroke-width="2"/>
-        {% set ns = namespace(угол=-90) %}
-        {% for монеты, вес in сектора %}
-          {% set доля = вес * 360 / всего %}
-          {# сектор — толстая дуга, длина штриха пропорциональна вероятности #}
-          <circle cx="100" cy="100" r="74" fill="none" stroke="{{ цвета[loop.index0] }}"
+        {% set ns = namespace(angle=-90) %}
+        {% for coins, weight in sectors %}
+          {% set share = weight * 360 / total_weight %}
+          {# A sector is a thick arc whose dash length is proportional to its probability #}
+          <circle cx="100" cy="100" r="74" fill="none" stroke="{{ colors[loop.index0] }}"
                   stroke-width="44" opacity=".9"
-                  stroke-dasharray="{{ (доля / 360 * 465) | round(2) }} 465"
-                  transform="rotate({{ ns.угол }} 100 100)"/>
-          <g transform="rotate({{ ns.угол + доля / 2 }} 100 100)">
+                  stroke-dasharray="{{ (share / 360 * 465) | round(2) }} 465"
+                  transform="rotate({{ ns.angle }} 100 100)"/>
+          <g transform="rotate({{ ns.angle + share / 2 }} 100 100)">
             <text x="100" y="34" text-anchor="middle" font-size="15" font-weight="800"
-                  fill="#092017">{{ монеты }}</text>
+                  fill="#092017">{{ coins }}</text>
           </g>
-          {% set ns.угол = ns.угол + доля %}
+          {% set ns.angle = ns.angle + share %}
         {% endfor %}
         <circle cx="100" cy="100" r="26" fill="#192228" stroke="#35E0A1" stroke-width="2"/>
-        <image href="{{ база }}/static/img/logo/logo-128.webp" x="80" y="80" width="40" height="40"/>
+        <image href="{{ base_path }}/static/img/logo/logo-128.webp" x="80" y="80" width="40" height="40"/>
       </svg>
     </div>
-    <p class="тише" id="итог-колеса">Доступно вращений: <b>{{ вращений }}</b></p>
+    <p class="muted" id="wheel-result">Доступно вращений: <b>{{ spins }}</b></p>
     <div style="display:flex; gap:10px; justify-content:center">
-      <button class="кнопка" id="крутить" {% if not вращений %}disabled{% endif %}>Крутить</button>
-      <button class="кнопка тихая" id="закрыть-колесо">Закрыть</button>
+      <button class="btn" id="spin-btn" {% if not spins %}disabled{% endif %}>Крутить</button>
+      <button class="btn ghost" id="close-wheel">Закрыть</button>
     </div>
   </div>
 </div>
 {% endblock %}
-{% block скрипты %}<script src="{{ база }}/static/js/wheel.js"></script>{% endblock %}
+{% block scripts %}<script src="{{ base_path }}/static/js/wheel.js"></script>{% endblock %}

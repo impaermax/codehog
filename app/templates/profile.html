@@ -1,88 +1,88 @@
 {% extends "base.html" %}
-{% from "_персонаж.html" import персонаж %}
-{% block заголовок %}Профиль — CodeHogwarts{% endblock %}
-{% block содержимое %}
+{% from "_hedgehog.html" import hedgehog %}
+{% block title %}Профиль — CodeHogwarts{% endblock %}
+{% block content %}
 
-<section class="сетка две" style="padding:28px 0; align-items:start">
-  <div class="карта центр">
-    {{ персонаж(надето, 240) }}
+<section class="grid two" style="padding:28px 0; align-items:start">
+  <div class="card center">
+    {{ hedgehog(equipped, 240) }}
     <h2 style="margin:12px 0 4px">{{ user.username }}</h2>
-    <div class="тише">{{ user.level.подпись }} · ранг {{ user.ранг }}</div>
+    <div class="muted">{{ user.level.label }} · ранг {{ user.rank }}</div>
   </div>
 
   <div>
-    <div class="карта" style="margin-bottom:16px">
+    <div class="card" style="margin-bottom:16px">
       <h3 style="margin-top:0">Показатели</h3>
-      <div class="сетка" style="grid-template-columns:repeat(2,1fr); gap:12px">
-        {% for значок, подпись, значение in [
-            ('🪙', 'Монет сейчас', user.показать_баланс),
+      <div class="grid" style="grid-template-columns:repeat(2,1fr); gap:12px">
+        {% for icon, caption, value in [
+            ('🪙', 'Монет сейчас', user.balance_display),
             ('🔥', 'Серия дней',   user.streak_current),
             ('🏆', 'Рекорд серии', user.streak_best),
             ('⭐', 'Опыта',        user.xp)] %}
-          <div class="показатель">
-            <span class="значок">{{ значок }}</span>
-            <b>{{ значение }}</b>
-            <span class="тише">{{ подпись }}</span>
+          <div class="stat">
+            <span class="icon">{{ icon }}</span>
+            <b>{{ value }}</b>
+            <span class="muted">{{ caption }}</span>
           </div>
         {% endfor %}
       </div>
     </div>
 
-    {% if курс %}
-      <div class="карта">
-        <h3 style="margin-top:0">{{ курс.title }}</h3>
-        <div class="полоса"><i style="width:{{ курс.прогресс }}%"></i></div>
-        <div class="тише">Пройдено {{ курс.прогресс }}% курса</div>
-        <a class="кнопка тихая" href="{{ база }}/app" style="margin-top:14px">К курсу</a>
+    {% if course %}
+      <div class="card">
+        <h3 style="margin-top:0">{{ course.title }}</h3>
+        <div class="progress"><i style="width:{{ course.progress }}%"></i></div>
+        <div class="muted">Пройдено {{ course.progress }}% курса</div>
+        <a class="btn ghost" href="{{ base_path }}/app" style="margin-top:14px">К курсу</a>
       </div>
     {% endif %}
   </div>
 </section>
 
-{# ── Коллекция ежей: купленные скины, один из них активный ── #}
+{# ── Hedgehog collection: owned skins, one of them is active ── #}
 <section style="padding-bottom:8px">
-  <h2>Коллекция ежей <span class="тише" style="font-weight:400">{{ коллекция | length }} из 54</span></h2>
-  <p class="тише" style="margin-bottom:16px">
-    Активный ёж показывается на всех экранах. Новых — в <a href="{{ база }}/shop">магазине</a>.
+  <h2>Коллекция ежей <span class="muted" style="font-weight:400">{{ collection | length }} из 54</span></h2>
+  <p class="muted" style="margin-bottom:16px">
+    Активный ёж показывается на всех экранах. Новых — в <a href="{{ base_path }}/shop">магазине</a>.
   </p>
-  <div class="скины">
-    {% for запись in коллекция %}
-      <div class="карта товар скин-карта куплено {{ 'надет' if запись.is_equipped }}" data-sku="{{ запись.item.sku }}">
-        <img src="{{ база }}/static/img/skins/{{ запись.item.asset_key }}.webp" alt="{{ запись.item.name }}" loading="lazy">
-        <h3>{{ запись.item.name }}</h3>
-        {% if запись.is_equipped %}
-          <button class="кнопка тихая" disabled>Активный</button>
+  <div class="skins">
+    {% for owned in collection %}
+      <div class="card product skin-card owned {{ 'active' if owned.is_equipped }}" data-sku="{{ owned.item.sku }}">
+        <img src="{{ base_path }}/static/img/skins/{{ owned.item.asset_key }}.webp" alt="{{ owned.item.name }}" loading="lazy">
+        <h3>{{ owned.item.name }}</h3>
+        {% if owned.is_equipped %}
+          <button class="btn ghost" disabled>Активный</button>
         {% else %}
-          <button class="кнопка тихая надеть">Сделать активным</button>
+          <button class="btn ghost equip-btn">Сделать активным</button>
         {% endif %}
-        <div class="тише сообщение"></div>
+        <div class="muted message"></div>
       </div>
     {% endfor %}
   </div>
 </section>
 
-{# ── Медали: требование 3.5, UC-7 ── #}
+{# ── Medals: requirement 3.5, UC-7 ── #}
 <section style="padding-bottom:56px">
-  {% set получено = медали | selectattr('1') | list | length %}
-  <h2>Медали <span class="тише" style="font-weight:400">{{ получено }} из {{ медали | length }}</span></h2>
-  <p class="тише" style="margin-bottom:16px">
+  {% set earned_count = medals | selectattr('1') | list | length %}
+  <h2>Медали <span class="muted" style="font-weight:400">{{ earned_count }} из {{ medals | length }}</span></h2>
+  <p class="muted" style="margin-bottom:16px">
     Медали выдаются сами, когда выполнено условие. Отдать или купить их нельзя.
   </p>
 
-  <div class="медали">
-    {% for медаль, есть, текущее in медали %}
-      <div class="медаль {{ '' if есть else 'закрыта' }}"
-           title="{{ медаль.description }}{% if not есть %} — {{ текущее }} из {{ медаль.target_value }}{% endif %}">
-        <span class="значок">{{ медаль.icon }}</span>
-        <span class="имя">{{ медаль.title }}</span>
-        {% if есть %}
-          <span class="метка" style="color:var(--акцент)">получена</span>
+  <div class="medals">
+    {% for medal, earned, current in medals %}
+      <div class="medal {{ '' if earned else 'locked' }}"
+           title="{{ medal.description }}{% if not earned %} — {{ current }} из {{ medal.target_value }}{% endif %}">
+        <span class="icon">{{ medal.icon }}</span>
+        <span class="name">{{ medal.title }}</span>
+        {% if earned %}
+          <span class="tag" style="color:var(--accent)">получена</span>
         {% else %}
-          <span class="метка">{{ текущее }}/{{ медаль.target_value }}</span>
+          <span class="tag">{{ current }}/{{ medal.target_value }}</span>
         {% endif %}
       </div>
     {% endfor %}
   </div>
 </section>
 {% endblock %}
-{% block скрипты %}<script src="{{ база }}/static/js/shop.js"></script>{% endblock %}
+{% block scripts %}<script src="{{ base_path }}/static/js/shop.js"></script>{% endblock %}

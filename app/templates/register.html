@@ -1,46 +1,47 @@
 {% extends "base.html" %}
-{% block заголовок %}Регистрация — CodeHogwarts{% endblock %}
-{% block содержимое %}
-<div class="обёртка узкая" style="padding:44px 0">
-  <div class="карта">
+{% block title %}Регистрация — CodeHogwarts{% endblock %}
+{% block content %}
+<div class="container narrow" style="padding:44px 0">
+  <div class="card">
     <h2 style="margin-top:0">Сохраним результат</h2>
-    {% if уровень %}
-      <div class="успех">Твой уровень: <b>{{ уровень.подпись }}</b> — курс соберём под него.</div>
+    {% if level %}
+      <div class="alert-success">Твой уровень: <b>{{ level.label }}</b> — курс соберём под него.</div>
     {% else %}
-      <p class="тише">Тест ещё не пройден — <a href="{{ база }}/test">пройди его</a>, курс будет точнее.</p>
+      <p class="muted">Тест ещё не пройден — <a href="{{ base_path }}/test">пройди его</a>, курс будет точнее.</p>
     {% endif %}
-    {% if ошибка %}<div class="ошибка">{{ ошибка }}</div>{% endif %}
-    <form method="post" action="{{ база }}/register">
-      <input type="hidden" name="level" value="{{ уровень.value if уровень else 'beginner' }}">
+    {% if error %}<div class="alert-error" style="margin-top:12px">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ base_path }}/register">
+      <input type="hidden" name="level" value="{{ level.value if level else 'beginner' }}">
       <label for="username">Как тебя звать</label>
       <input id="username" name="username" type="text" required placeholder="Кибер-ёж" autocomplete="nickname"
-             value="{{ введено.username if введено }}">
+             value="{{ entered.username if entered }}">
       <label for="email">Почта</label>
       <input id="email" name="email" type="email" required placeholder="you@example.com" autocomplete="email"
-             value="{{ введено.email if введено }}">
-      {% if стартовые %}
+             value="{{ entered.email if entered }}">
+      {% if starter_skins %}
         <label>Выбери своего ежа</label>
-        <div class="выбор-ежа">
-          {% for ёж in стартовые %}
-            <label title="{{ ёж.name }}">
-              <input type="radio" name="skin" value="{{ ёж.sku }}" {{ 'checked' if (ёж.sku == выбранный if выбранный else loop.first) }}>
-              <img src="{{ база }}/static/img/skins/{{ ёж.asset_key }}.webp" alt="{{ ёж.name }}">
+        <div class="starter-picker">
+          {% for skin in starter_skins %}
+            <label title="{{ skin.name }}">
+              <input type="radio" name="skin" value="{{ skin.sku }}"
+                     {{ 'checked' if (skin.sku == selected_skin if selected_skin else loop.first) }}>
+              <img src="{{ base_path }}/static/img/skins/{{ skin.asset_key }}.webp" alt="{{ skin.name }}">
             </label>
           {% endfor %}
         </div>
-        <p class="тише" style="margin:0 0 12px">Остальных откроешь в магазине по мере прохождения курса.</p>
+        <p class="muted" style="margin:0 0 12px">Остальных откроешь в магазине по мере прохождения курса.</p>
       {% endif %}
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" required minlength="6"
              placeholder="минимум 6 символов" autocomplete="new-password">
-      <p class="тише" style="margin:14px 0 0">
+      <p class="muted" style="margin:14px 0 0">
         Сервис для тех, кому уже есть 14. Нажимая кнопку, ты принимаешь
-        <a href="{{ база }}/terms" target="_blank">Пользовательское соглашение</a> и
-        <a href="{{ база }}/privacy" target="_blank">Политику конфиденциальности</a>.
+        <a href="{{ base_path }}/terms" target="_blank">Пользовательское соглашение</a> и
+        <a href="{{ base_path }}/privacy" target="_blank">Политику конфиденциальности</a>.
       </p>
-      <button class="кнопка большая" type="submit" style="width:100%; margin-top:14px">Начать курс →</button>
+      <button class="btn large" type="submit" style="width:100%; margin-top:14px">Начать курс →</button>
     </form>
-    <p class="тише центр" style="margin-bottom:0">Уже есть аккаунт? <a href="{{ база }}/login">Войти</a></p>
+    <p class="muted center" style="margin-bottom:0">Уже есть аккаунт? <a href="{{ base_path }}/login">Войти</a></p>
   </div>
 </div>
 {% endblock %}
