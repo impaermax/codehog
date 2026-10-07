@@ -4,34 +4,57 @@
 {% block содержимое %}
 <section class="сетка две" style="padding:30px 0; align-items:start">
   <div class="карта центр">
-    {{ персонаж(надето, 240) }}
-    <p class="тише">Так тебя видят другие</p>
+    {{ персонаж(надето, 220) }}
+    <p class="тише">Твой ёж сейчас</p>
   </div>
   <div class="карта">
-    <h2 style="margin-top:0">Баланс: <span style="color:var(--золото)">{{ user.coins }} 🪙</span></h2>
-    <p class="тише">Монеты приходят за уроки, серии дней и колесо.
-      Вещи влияют только на внешний вид — на обучение ничего не даёт преимуществ.</p>
+    <h2 style="margin-top:0">Баланс: <span style="color:var(--золото)">{{ user.показать_баланс }} 🪙</span></h2>
+    {% if старт_бесплатно %}
+      <div class="успех" style="margin-bottom:12px">Выбери стартового ежа — первый из уровня 1 бесплатно.</div>
+    {% endif %}
+    <p class="тише">Монеты приходят за уроки, серии дней и колесо. Каждый пройденный
+      модуль курса открывает новый уровень скинов. Скины меняют только внешний вид,
+      преимуществ в обучении не дают.</p>
   </div>
 </section>
 
-<section class="сетка три" style="padding-bottom:50px">
-  {% for предмет in предметы %}
-    {% set моё = мои.get(предмет.id) %}
-    <div class="карта товар {% if моё %}куплено{% endif %}" data-sku="{{ предмет.sku }}">
-      <span class="бейдж">{{ предмет.slot.подпись }}</span>
-      <h3 style="margin:0">{{ предмет.name }}</h3>
-      <p class="тише" style="margin:0; flex:1">{{ предмет.description }}</p>
-      {% if моё %}
-        <button class="кнопка тихая надеть">{{ 'Снять' if моё.is_equipped else 'Надеть' }}</button>
+{% for уровень, скины in уровни %}
+  {% set открыт = уровень <= открыто %}
+  <section class="уровень-скинов {{ '' if открыт else 'закрыт' }}">
+    <div class="уровень-шапка">
+      <h2>Уровень {{ уровень }}</h2>
+      {% if открыт %}
+        <span class="бейдж">открыт</span>
       {% else %}
-        <div class="цена">{{ предмет.price }} 🪙</div>
-        <button class="кнопка купить" {% if user.coins < предмет.price %}disabled{% endif %}>
-          {% if user.coins < предмет.price %}Не хватает {{ предмет.price - user.coins }}{% else %}Купить{% endif %}
-        </button>
+        <span class="бейдж">🔒 откроется после модуля {{ уровень - 1 }}</span>
       {% endif %}
-      <div class="тише сообщение"></div>
     </div>
-  {% endfor %}
-</section>
+    <div class="скины">
+      {% for скин in скины %}
+        {% set моё = мои.get(скин.id) %}
+        {% set цена = 0 if (старт_бесплатно and уровень == 1) else скин.price %}
+        <div class="карта товар скин-карта {{ 'куплено' if моё }} {{ 'надет' if моё and моё.is_equipped }}"
+             data-sku="{{ скин.sku }}">
+          <img src="{{ база }}/static/img/skins/{{ скин.asset_key }}.webp" alt="{{ скин.name }}" loading="lazy">
+          <h3>{{ скин.name }}</h3>
+          <p class="тише">{{ скин.description }}</p>
+          {% if моё and моё.is_equipped %}
+            <button class="кнопка тихая" disabled>Активный</button>
+          {% elif моё %}
+            <button class="кнопка тихая надеть">Сделать активным</button>
+          {% elif not открыт %}
+            <button class="кнопка" disabled>🔒 {{ скин.price }} 🪙</button>
+          {% elif not user.is_admin and user.coins < цена %}
+            <button class="кнопка" disabled>Не хватает {{ цена - user.coins }} 🪙</button>
+          {% else %}
+            <button class="кнопка купить">{{ 'Выбрать бесплатно' if цена == 0 else 'Купить за ' ~ цена ~ ' 🪙' }}</button>
+          {% endif %}
+          <div class="тише сообщение"></div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endfor %}
+<div style="height:40px"></div>
 {% endblock %}
 {% block скрипты %}<script src="{{ база }}/static/js/shop.js"></script>{% endblock %}

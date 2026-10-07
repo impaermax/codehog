@@ -4,8 +4,12 @@
 <div class="обёртка узкая" style="padding:44px 0">
   <div class="карта">
     <h2 style="margin-top:0">С возвращением</h2>
+    {% if next and next.endswith('/admin') %}
+      <div class="инфо-блок" style="margin-bottom:12px">Панель доступна только администратору. Войди под логином администратора.</div>
+    {% endif %}
     {% if ошибка %}<div class="ошибка">{{ ошибка }}</div>{% endif %}
     <form method="post" action="{{ база }}/login">
+      <input type="hidden" name="next" value="{{ next }}">
       <label for="email">Почта или логин</label>
       <input id="email" name="email" type="text" required autocomplete="username">
       <label for="password">Пароль</label>

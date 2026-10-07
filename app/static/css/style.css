@@ -170,7 +170,7 @@ code, pre, .моно { font-family: var(--моно); font-size: 14px; line-heigh
 }
 .логотип:hover { color: var(--текст); }
 .логотип span { color: var(--акцент); }
-.логотип img { width: 28px; height: 28px; }
+.логотип img { width: 34px; height: 34px; }
 
 .метрики {
   display: flex;
@@ -742,3 +742,82 @@ footer { padding: 40px 0 28px; color: var(--текст-3); font-size: 14px; }
   }
   .колесо { transition: none; }
 }
+
+/* ═══ Окно ошибки ═══ */
+
+.тост {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: calc(100% - 32px);
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 16px;
+  background: var(--ошибка-фон);
+  border: 1px solid var(--ошибка);
+  border-radius: var(--р-панель);
+  box-shadow: var(--тень-меню);
+  color: var(--текст);
+  font-size: 15px;
+}
+.тост span { flex: 1; }
+.тост .кнопка { min-height: 36px; padding: 8px 14px; font-size: 14px; }
+.тост-закрыть {
+  background: none; border: 0; color: var(--текст-2);
+  font-size: 16px; cursor: pointer; padding: 6px;
+}
+
+/* ═══ Текстовые страницы: соглашение, политика ═══ */
+
+.документ { padding: 32px 20px 48px; }
+.документ h2 { font-size: 20px; line-height: 26px; margin-top: 28px; }
+.документ p, .документ li { color: var(--текст-2); line-height: 26px; }
+.документ ul { padding-left: 20px; }
+.документ table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+.документ th { text-align: left; color: var(--текст); border-bottom: 1px solid var(--граница-контрол); padding: 8px; }
+.документ td { color: var(--текст-2); border-bottom: 1px solid var(--граница); padding: 8px; vertical-align: top; }
+
+/* ссылки в подвале */
+footer a { color: var(--текст-3); margin: 0 6px; }
+footer a:hover { color: var(--текст-2); }
+
+/* ═══ Магазин скинов ═══ */
+
+.уровень-скинов { margin-bottom: 36px; }
+.уровень-шапка { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.уровень-шапка h2 { margin: 0; }
+
+.скины { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.скин-карта { padding: 14px; gap: 8px; text-align: center; }
+.скин-карта img {
+  width: 100%; aspect-ratio: 5 / 4; object-fit: contain;
+  background: var(--фон-сцена); border-radius: var(--р-контрол); padding: 8px;
+}
+.скин-карта h3 { margin: 4px 0 0; font-size: 16px; line-height: 22px; }
+.скин-карта p { margin: 0; flex: 1; font-size: 13px; line-height: 18px; }
+.скин-карта .кнопка { width: 100%; min-height: 40px; font-size: 14px; }
+.скин-карта.надет { border-color: var(--акцент); box-shadow: 0 0 0 1px var(--акцент) inset; }
+
+.уровень-скинов.закрыт .скин-карта img { filter: grayscale(.85) brightness(.6); }
+.уровень-скинов.закрыт .скин-карта h3,
+.уровень-скинов.закрыт .скин-карта p { opacity: .6; }
+
+@media (min-width: 720px)  { .скины { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1080px) { .скины { gap: 16px; } }
+
+/* Выбор стартового ежа при регистрации */
+.выбор-ежа { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 4px; }
+.выбор-ежа label { margin: 0; cursor: pointer; }
+.выбор-ежа input { position: absolute; opacity: 0; pointer-events: none; }
+.выбор-ежа img {
+  width: 100%; aspect-ratio: 5 / 4; object-fit: contain; padding: 6px;
+  background: var(--фон-сцена); border: 2px solid var(--граница); border-radius: var(--р-контрол);
+  transition: border-color var(--быстро);
+}
+.выбор-ежа input:checked + img { border-color: var(--акцент); background: var(--акцент-подложка); }
+.выбор-ежа input:focus-visible + img { outline: 2px solid var(--фокус); outline-offset: 2px; }

@@ -39,6 +39,8 @@ class Settings:
         default_factory=lambda: os.getenv("ADMIN_PASSWORD", "codehog-admin")
     )
     secret_key: str = field(default_factory=lambda: os.getenv("SECRET_KEY", "dev-secret-change-me"))
+    # Почта для обращений по личным данным. Пусто — строка на странице политики не выводится
+    contact_email: str = field(default_factory=lambda: os.getenv("CONTACT_EMAIL", ""))
     # Подкаталог, в котором живёт приложение: "" для корня домена,
     # "/codehog" — чтобы открывалось по https://maks.my/codehog
     base_path: str = field(

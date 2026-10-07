@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101619">
   <title>{% block заголовок %}CodeHogwarts — Python в игре{% endblock %}</title>
-  <meta name="description" content="Тренажёр Python: короткие уроки под твой уровень, монеты и прокачка кибер-ежа.">
+  <meta name="description" content="Тренажёр Python: короткие уроки под твой уровень, монеты и коллекция ежей.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="{{ база }}/static/css/style.css">
-  <link rel="icon" type="image/webp" href="{{ база }}/static/img/ёж/лого-64.webp">
-  <link rel="apple-touch-icon" href="{{ база }}/static/img/ёж/лого-256.webp">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ база }}/static/img/logo/favicon.png">
+  <link rel="icon" type="image/webp" sizes="64x64" href="{{ база }}/static/img/logo/logo-64.webp">
+  <link rel="apple-touch-icon" href="{{ база }}/static/img/logo/apple-touch-icon.png">
 </head>
 <body>
 {% macro языки_блок() %}
@@ -24,7 +25,7 @@
 <div class="обёртка">
   <header class="шапка">
     <a class="логотип" href="{{ база }}{{ '/app' if user else '/' }}">
-      <img src="{{ база }}/static/img/ёж/лого-64.webp" alt="" width="28" height="28">
+      <img src="{{ база }}/static/img/logo/logo-64.webp" alt="" width="34" height="34">
       Code<span>Hogwarts</span>
     </a>
     {% if user %}
@@ -57,10 +58,13 @@
   {% block содержимое %}{% endblock %}
 
   <footer class="центр">
-    CodeHogwarts · тренажёр Python
+    CodeHogwarts · тренажёр Python · 14+<br>
+    <a href="{{ база }}/terms">Пользовательское соглашение</a>
+    <a href="{{ база }}/privacy">Политика конфиденциальности</a>
   </footer>
 </div>
 <script>window.БАЗА = "{{ база }}";</script>
+<script src="{{ база }}/static/js/errors.js"></script>
 {% block скрипты %}{% endblock %}
 </body>
 </html>

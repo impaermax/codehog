@@ -16,12 +16,26 @@ from sqlalchemy.engine import Engine
 НУЖНЫЕ = [
     ("users", "is_admin", "BOOLEAN NOT NULL DEFAULT 0"),
     ("users", "last_bonus_id", "INTEGER NOT NULL DEFAULT 0"),
+    ("test_attempts", "experience", "VARCHAR(16) NOT NULL DEFAULT ''"),
+    ("items", "tier", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
 ИНДЕКСЫ = [
     ("uq_task_lesson_order", "CREATE UNIQUE INDEX IF NOT EXISTS "
                              "uq_task_lesson_order ON tasks(lesson_id, order_index)"),
+    # активный ёж у пользователя один (частичный индекс: только строки is_equipped = 1)
+    ("uq_inventory_one_active", "CREATE UNIQUE INDEX IF NOT EXISTS "
+                                "uq_inventory_one_active ON inventory(user_id) WHERE is_equipped = 1"),
+]
+
+# Старая одежда снята с продажи, носить её больше нельзя. А если у кого-то
+# активными оказались несколько скинов, оставляем последний полученный.
+ЧИСТКА_АКТИВНЫХ = [
+    """UPDATE inventory SET is_equipped = 0 WHERE is_equipped = 1 AND item_id IN (
+        SELECT id FROM items WHERE tier = 0)""",
+    """UPDATE inventory SET is_equipped = 0 WHERE is_equipped = 1 AND id NOT IN (
+        SELECT MAX(id) FROM inventory WHERE is_equipped = 1 GROUP BY user_id)""",
 ]
 
 ЧИСТКА_ДУБЛЕЙ = """
@@ -50,7 +64,12 @@ def дополнить_схему(engine: Engine) -> list[str]:
             if удалено:
                 лог.warning("удалено задвоенных заданий: %s", удалено)
                 добавлено.append(f"дубли заданий: -{удалено}")
-            for имя, запрос in ИНДЕКСЫ:
+        if "inventory" in инспектор.get_table_names():
+            for запрос in ЧИСТКА_АКТИВНЫХ:
+                соединение.execute(text(запрос))
+        for имя, запрос in ИНДЕКСЫ:
+            таблица = запрос.split(" ON ")[1].split("(")[0]
+            if таблица in инспектор.get_table_names():
                 соединение.execute(text(запрос))
 
     if добавлено:

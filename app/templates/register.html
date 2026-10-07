@@ -13,13 +13,32 @@
     <form method="post" action="{{ база }}/register">
       <input type="hidden" name="level" value="{{ уровень.value if уровень else 'beginner' }}">
       <label for="username">Как тебя звать</label>
-      <input id="username" name="username" type="text" required placeholder="Кибер-ёж" autocomplete="nickname">
+      <input id="username" name="username" type="text" required placeholder="Кибер-ёж" autocomplete="nickname"
+             value="{{ введено.username if введено }}">
       <label for="email">Почта</label>
-      <input id="email" name="email" type="email" required placeholder="you@example.com" autocomplete="email">
+      <input id="email" name="email" type="email" required placeholder="you@example.com" autocomplete="email"
+             value="{{ введено.email if введено }}">
+      {% if стартовые %}
+        <label>Выбери своего ежа</label>
+        <div class="выбор-ежа">
+          {% for ёж in стартовые %}
+            <label title="{{ ёж.name }}">
+              <input type="radio" name="skin" value="{{ ёж.sku }}" {{ 'checked' if (ёж.sku == выбранный if выбранный else loop.first) }}>
+              <img src="{{ база }}/static/img/skins/{{ ёж.asset_key }}.webp" alt="{{ ёж.name }}">
+            </label>
+          {% endfor %}
+        </div>
+        <p class="тише" style="margin:0 0 12px">Остальных откроешь в магазине по мере прохождения курса.</p>
+      {% endif %}
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" required minlength="6"
              placeholder="минимум 6 символов" autocomplete="new-password">
-      <button class="кнопка большая" type="submit" style="width:100%">Начать курс →</button>
+      <p class="тише" style="margin:14px 0 0">
+        Сервис для тех, кому уже есть 14. Нажимая кнопку, ты принимаешь
+        <a href="{{ база }}/terms" target="_blank">Пользовательское соглашение</a> и
+        <a href="{{ база }}/privacy" target="_blank">Политику конфиденциальности</a>.
+      </p>
+      <button class="кнопка большая" type="submit" style="width:100%; margin-top:14px">Начать курс →</button>
     </form>
     <p class="тише центр" style="margin-bottom:0">Уже есть аккаунт? <a href="{{ база }}/login">Войти</a></p>
   </div>

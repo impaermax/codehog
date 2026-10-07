@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     CoinTransaction,
+    Course,
     DailyActivity,
     Item,
     User,
@@ -26,6 +27,8 @@ from app.models import (
 МОНЕТ_ЗА_ДЕНЬ = 15
 МОНЕТ_ЗА_НЕДЕЛЮ_СТРИКА = 35
 УРОКОВ_НА_ВРАЩЕНИЕ = 5
+# Скины в магазине: уровень 1 доступен сразу, остальные — по одному за модуль
+МАКС_УРОВЕНЬ_СКИНОВ = 6
 
 # (монеты, вес). Средняя награда — 24 монеты.
 СЕКТОРА: list[tuple[int, int]] = [(10, 45), (20, 30), (40, 18), (80, 6), (150, 1)]
@@ -181,6 +184,34 @@ class Экономика:
             raise
         return вращение
 
+    def открытый_уровень(self, юзер: User) -> int:
+        """До какого уровня скинов открыт магазин: 1 сразу, +1 за каждый пройденный модуль.
+
+        Модуль считается пройденным, когда в нём пройдены все уроки. Пройден весь
+        курс — открыто всё, даже если модулей в нём меньше пяти.
+        """
+        if юзер.is_admin:
+            return МАКС_УРОВЕНЬ_СКИНОВ
+        курс = self.сессия.scalar(
+            select(Course).where(Course.user_id == юзер.id, Course.is_active.is_(True))
+            .order_by(Course.id.desc())
+        )
+        if курс is None:
+            return 1
+        пройдено = sum(1 for м in курс.modules if м.lessons and all(у.is_completed for у in м.lessons))
+        if курс.modules and пройдено == len(курс.modules):
+            return МАКС_УРОВЕНЬ_СКИНОВ
+        return min(МАКС_УРОВЕНЬ_СКИНОВ, 1 + пройдено)
+
+    def есть_скин(self, юзер: User) -> bool:
+        return any(п.item.tier >= 1 for п in юзер.items)
+
+    def цена(self, юзер: User, предмет: Item) -> int:
+        """Первый скин уровня 1 — бесплатно: это стартовый ёж."""
+        if предмет.tier == 1 and not self.есть_скин(юзер):
+            return 0
+        return предмет.price
+
     def купить(self, юзер: User, предмет: Item) -> UserItem:
         """Покупка предмета: списание, запись в инвентарь, автоматическая экипировка."""
         уже = self.сессия.scalar(
@@ -188,11 +219,17 @@ class Экономика:
         )
         if уже:
             return уже
-        if not юзер.is_admin and юзер.coins < предмет.price:
-            raise НедостаточноМонет(f"Не хватает {предмет.price - юзер.coins} монет")
+        if предмет.tier > self.открытый_уровень(юзер):
+            raise НедостаточноМонет(
+                f"Этот уровень откроется, когда пройдёшь модуль {предмет.tier - 1}"
+            )
+        цена = self.цена(юзер, предмет)
+        if not юзер.is_admin and юзер.coins < цена:
+            raise НедостаточноМонет(f"Не хватает {цена - юзер.coins} монет")
 
-        self._провести(юзер, -предмет.price, ПричинаМонет.ПОКУПКА, предмет.name)
-        покупка = UserItem(user_id=юзер.id, item_id=предмет.id, is_equipped=True)
+        self._провести(юзер, -цена, ПричинаМонет.ПОКУПКА,
+                       предмет.name + (" (стартовый ёж)" if цена == 0 else ""))
+        покупка = UserItem(user_id=юзер.id, item_id=предмет.id, is_equipped=False)
         self.сессия.add(покупка)
         self.сессия.flush()
         self.надеть(юзер, покупка)
@@ -200,12 +237,19 @@ class Экономика:
         return покупка
 
     def надеть(self, юзер: User, покупка: UserItem) -> None:
-        """В одном слоте одновременно только один предмет."""
-        слот = покупка.item.slot
-        for другой in юзер.items:
-            if другой.item.slot == слот and другой.id != покупка.id:
-                другой.is_equipped = False
-        покупка.is_equipped = True
+        """Делает ежа активным. Активный у пользователя всегда один.
 
-    def снять(self, покупка: UserItem) -> None:
-        покупка.is_equipped = False
+        Сначала в базу уходит снятие отметки с прежнего, потом — установка
+        новому. В обратном порядке уникальный индекс uq_inventory_one_active
+        на мгновение увидел бы двух активных и отклонил запись.
+        """
+        # прежнего активного ищем запросом, а не по юзер.items: этот список
+        # загружен один раз и не видит скинов, купленных в той же сессии
+        self.сессия.flush()
+        прежние = self.сессия.scalars(select(UserItem).where(
+            UserItem.user_id == юзер.id, UserItem.is_equipped.is_(True), UserItem.id != покупка.id,
+        )).all()
+        for другой in прежние:
+            другой.is_equipped = False
+        self.сессия.flush()
+        покупка.is_equipped = True

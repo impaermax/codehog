@@ -15,8 +15,8 @@
 
   <div class="сцена">
     <span class="метка" style="position:absolute; top:20px; left:20px">Твой прогресс видно</span>
-    <img src="{{ база }}/static/img/ёж/ёж-базовый.webp" width="734" height="900"
-         alt="Кибер-ёж — персонаж, которого ты прокачиваешь" fetchpriority="high">
+    <img src="{{ база }}/static/img/skins/1-1.webp" width="440" height="356"
+         alt="Ёж за ноутбуком — персонаж, которого ты прокачиваешь" fetchpriority="high">
   </div>
 </section>
 
@@ -24,15 +24,15 @@
 <section style="padding-bottom:8px">
   <div class="витрина" id="витрина">
     {% for ключ, номер, подпись in [
-        ('базовый', '01', т.get('ступень.новичок', 'База')),
-        ('неон',    '02', 'Неон'),
-        ('мобиль',  '03', 'Хог-мобиль')] %}
+        ('1-1', '01', 'Старт'),
+        ('3-6', '02', 'Уровень 3'),
+        ('5-7', '03', 'Уровень 6')] %}
       <figure class="ступень {% if loop.first %}активна{% endif %}" data-шаг="{{ loop.index0 }}">
-        <img src="{{ база }}/static/img/ёж/ёж-{{ ключ }}.webp" alt="{{ подпись }}"
+        <img src="{{ база }}/static/img/skins/{{ ключ }}.webp" alt="{{ подпись }}"
              loading="{{ 'eager' if loop.first else 'lazy' }}">
         <figcaption>
           <span class="метка">{{ номер }} / {{ подпись }}</span>
-          <span class="тише">{{ ['Начальное состояние', 'Следующая ступень', 'Дальняя цель'][loop.index0] }}</span>
+          <span class="тише">{{ ['Стартовый ёж на выбор', 'Новые скины за каждый модуль', '54 ежа в коллекции'][loop.index0] }}</span>
         </figcaption>
       </figure>
     {% endfor %}

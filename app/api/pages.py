@@ -59,16 +59,24 @@ def страница_регистрации(request: Request, сессия: Sess
     ) if гость else None
     уровень = попытка.determined_level if попытка else None
     return шаблоны.TemplateResponse(
-        request, "register.html",
-        _контекст(request, None, сессия, уровень=уровень, попытка=попытка),
+            request, "register.html",
+        _контекст(request, None, сессия, уровень=уровень, попытка=попытка,
+                  стартовые=_стартовые(сессия)),
     )
+
+
+def _стартовые(сессия: Session) -> list[Item]:
+    """Девять скинов уровня 1 — из них при регистрации выбирается ёж."""
+    return list(сессия.scalars(
+        select(Item).where(Item.tier == 1, Item.is_active.is_(True)).order_by(Item.sort_order)
+    ))
 
 
 @роутер.post("/register")
 def регистрация(
     request: Request,
     email: str = Form(...), username: str = Form(...), password: str = Form(...),
-    level: str = Form("beginner"),
+    level: str = Form("beginner"), skin: str = Form("hog-1-1"),
     сессия: Session = Depends(получить_сессию), гость: str = Depends(токен_гостя),
 ):
     авторизация = Аутентификация(сессия)
@@ -80,12 +88,17 @@ def регистрация(
         юзер = авторизация.зарегистрировать(email, username, password, уровень)
     except ОшибкаВхода as e:
         return шаблоны.TemplateResponse(
-        request, "register.html",
-            _контекст(request, None, сессия, ошибка=str(e), уровень=уровень, попытка=None),
+            request, "register.html",
+            # всё введённое возвращаем в форму, иначе после ошибки выбор ежа
+            # молча сбрасывался на первого, синего
+            _контекст(request, None, сессия, ошибка=str(e), уровень=уровень, попытка=None,
+                      стартовые=_стартовые(сессия), выбранный=skin,
+                      введено={"email": email, "username": username}),
             status_code=400,
         )
 
     слабые: list[str] = []
+    опыт = ""
     if гость:
         попытка = сессия.scalar(
             select(TestAttempt).where(TestAttempt.session_token == гость)
@@ -94,9 +107,17 @@ def регистрация(
         if попытка and попытка.user_id is None:
             попытка.user_id = юзер.id
             слабые = АдаптивныйТест.слабые_темы(попытка.ответы)
+            # опыт решает, будет ли перед курсом вводный модуль
+            опыт = попытка.experience
             сессия.commit()
 
-    ГенераторКурса(сессия).создать(юзер, слабые)
+    # стартовый ёж — бесплатно, выбранный на форме; чужой или неверный sku заменяется первым
+    ёж = сессия.scalar(select(Item).where(Item.sku == skin, Item.tier == 1, Item.is_active.is_(True)))
+    ёж = ёж or (_стартовые(сессия) or [None])[0]
+    if ёж is not None:
+        Экономика(сессия).купить(юзер, ёж)
+
+    ГенераторКурса(сессия).создать(юзер, слабые, опыт=опыт)
     подготовить_фоном(юзер.id)          # следующие уроки готовятся, пока человек читает первый
     ответ = RedirectResponse(f"{БАЗА}/app", status_code=303)
     ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
@@ -104,22 +125,35 @@ def регистрация(
     return ответ
 
 
+def _куда_после_входа(next_: str) -> str:
+    """Адрес возврата после входа — только внутри приложения, иначе в курс.
+
+    Принимаем лишь пути нашего подкаталога: ссылка вида ?next=https://чужой.сайт
+    не должна уводить человека со стенда после ввода пароля.
+    """
+    if next_.startswith(f"{БАЗА}/") and not next_.startswith("//"):
+        return next_
+    return f"{БАЗА}/app"
+
+
 @роутер.get("/login", response_class=HTMLResponse)
-def страница_входа(request: Request, сессия: Session = Depends(получить_сессию)):
+def страница_входа(request: Request, next: str = "", сессия: Session = Depends(получить_сессию)):
     return шаблоны.TemplateResponse(
-        request, "login.html", _контекст(request, None, сессия))
+        request, "login.html", _контекст(request, None, сессия, next=_куда_после_входа(next)))
 
 
 @роутер.post("/login")
 def вход(request: Request, email: str = Form(...), password: str = Form(...),
-         сессия: Session = Depends(получить_сессию)):
+         next: str = Form(""), сессия: Session = Depends(получить_сессию)):
     try:
         юзер = Аутентификация(сессия).войти(email, password)
     except ОшибкаВхода as e:
         return шаблоны.TemplateResponse(
-        request, "login.html", _контекст(request, None, сессия, ошибка=str(e)), status_code=400
+            request, "login.html",
+            _контекст(request, None, сессия, ошибка=str(e), next=_куда_после_входа(next)),
+            status_code=400,
         )
-    ответ = RedirectResponse(f"{БАЗА}/app", status_code=303)
+    ответ = RedirectResponse(_куда_после_входа(next), status_code=303)
     ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
                      httponly=True, samesite="lax")
     return ответ
@@ -201,20 +235,43 @@ def профиль(request: Request, юзер: User | None = Depends(текущ�
     return шаблоны.TemplateResponse(request, "profile.html", _контекст(
         request, юзер, сессия,
         курс=курс,
+        коллекция=sorted((п for п in юзер.items if п.item.tier), key=lambda п: п.item.sort_order),
         медали=медали.все_с_отметкой(юзер),
         показатели=медали.показатели(юзер),
     ))
 
 
+@роутер.get("/terms", response_class=HTMLResponse)
+def соглашение(request: Request, юзер: User | None = Depends(текущий_пользователь),
+               сессия: Session = Depends(получить_сессию)):
+    """Пользовательское соглашение. Открыто всем, в том числе гостям."""
+    return шаблоны.TemplateResponse(request, "terms.html", _контекст(request, юзер, сессия))
+
+
+@роутер.get("/privacy", response_class=HTMLResponse)
+def политика(request: Request, юзер: User | None = Depends(текущий_пользователь),
+             сессия: Session = Depends(получить_сессию)):
+    """Политика конфиденциальности. Открыта всем, в том числе гостям."""
+    return шаблоны.TemplateResponse(request, "privacy.html", _контекст(request, юзер, сессия))
+
+
 @роутер.get("/shop", response_class=HTMLResponse)
 def магазин(request: Request, юзер: User | None = Depends(текущий_пользователь),
             сессия: Session = Depends(получить_сессию)):
+    """Магазин скинов: шесть уровней по девять ежей, уровни открываются по модулям."""
     if not юзер:
         return RedirectResponse(f"{БАЗА}/", status_code=303)
-    предметы = сессия.scalars(
-        select(Item).where(Item.is_active.is_(True)).order_by(Item.sort_order)
+    экономика = Экономика(сессия)
+    скины = сессия.scalars(
+        select(Item).where(Item.is_active.is_(True), Item.tier >= 1).order_by(Item.sort_order)
     ).all()
+    уровни: dict[int, list[Item]] = {}
+    for скин in скины:
+        уровни.setdefault(скин.tier, []).append(скин)
     мои = {п.item_id: п for п in юзер.items}
-    return шаблоны.TemplateResponse(
-        request, "shop.html", _контекст(request, юзер, сессия, предметы=предметы, мои=мои)
-    )
+    return шаблоны.TemplateResponse(request, "shop.html", _контекст(
+        request, юзер, сессия,
+        уровни=sorted(уровни.items()), мои=мои,
+        открыто=экономика.открытый_уровень(юзер),
+        старт_бесплатно=not экономика.есть_скин(юзер),
+    ))
