@@ -1,14 +1,20 @@
-"""JSON-эндпоинты: проверка ответов, колесо, магазин, подсказки ИИ."""
+"""JSON-эндпоинты: проверка ответов, колесо, магазин, подсказки ИИ.
+
+Тела запросов и ответов описаны Pydantic-схемами в schemas.py: FastAPI сам
+проверяет входные данные (422 при ошибке), отрезает лишнее в ответе и
+показывает всё это в документации /hog/docs.
+"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import текущий_пользователь, токен_гостя
+from app.api import schemas as с
+from app.api.deps import нужен_пользователь, токен_гостя
 from app.config import settings
 from app.database import получить_сессию
-from app.models import Item, Lesson, Submission, Task, TestAttempt, User, UserItem, ТипЗадания
+from app.models import Item, Lesson, Submission, Task, TestAttempt, User, UserItem, ТипЗадания, Уровень
 from app.services.ai import ИИНедоступен, КлиентИИ
 from app.services.awards import Медали, случайный_мем
 from app.services.economy import НедостаточноМонет, СЕКТОРА, Экономика
@@ -16,35 +22,53 @@ from app.services.sandbox import Песочница
 from app.services.testbank import АдаптивныйТест, ПО_ID
 
 # Префикс /api на maks.my уже занят другой платформой, поэтому свой — /hog.
-роутер = APIRouter(prefix="/hog")
-
-
-def _нужен_вход(юзер: User | None) -> User:
-    if юзер is None:
-        raise HTTPException(status_code=401, detail="Нужно войти")
-    return юзер
+# Любой отказ отдаётся как {"detail": "..."} — это видно в документации.
+роутер = APIRouter(
+    prefix="/hog",
+    responses={400: {"model": с.ErrorOut}, 401: {"model": с.ErrorOut}, 404: {"model": с.ErrorOut}},
+)
 
 
 # --- входной тест ---
 
-@роутер.post("/test/submit")
+@роутер.post("/test/submit", tags=["тест"],
+             response_model=с.TestNextStage | с.TestResult)
 def проверить_тест(
     request: Request,
-    данные: dict = Body(...),
+    данные: с.TestSubmit,
     сессия: Session = Depends(получить_сессию),
     гость: str = Depends(токен_гостя),
 ):
-    """Принимает ответы этапа, отдаёт следующий этап или итог."""
-    ответы_клиента = данные.get("answers", [])
+    """Принимает ответы этапа, отдаёт следующий этап или итог.
+
+    Поле experience — ответ на вопрос перед тестом: none, other или python.
+    Кто никогда не программировал, тест не проходит: сразу получает уровень
+    «новичок», а курс ему собирается с нулевого модуля.
+    """
+    опыт = данные.experience
+    if опыт == "none":
+        попытка = TestAttempt(
+            session_token=гость or request.client.host,
+            correct_count=0, total_count=0,
+            determined_level=Уровень.НОВИЧОК, experience=опыт,
+        )
+        сессия.add(попытка)
+        сессия.commit()
+        return {
+            "done": True, "from_zero": True,
+            "level": Уровень.НОВИЧОК.value, "level_label": Уровень.НОВИЧОК.подпись,
+            "correct": 0, "total": 0, "weak_topics": [], "explanations": [],
+        }
+
     разобранные = []
-    for о in ответы_клиента:
-        вопрос = ПО_ID.get(о.get("id", ""))
+    for о in данные.answers:
+        вопрос = ПО_ID.get(о.id)
         if вопрос is None:
             continue
         разобранные.append({
             "id": вопрос.id,
-            "given": о.get("answer", ""),
-            "correct": о.get("answer", "") == вопрос.ответ,
+            "given": о.answer,
+            "correct": о.answer == вопрос.ответ,
             "topic": вопрос.тема,
         })
 
@@ -63,6 +87,7 @@ def проверить_тест(
         correct_count=sum(1 for о in разобранные if о["correct"]),
         total_count=len(разобранные),
         determined_level=уровень,
+        experience=опыт,
     )
     попытка.ответы = разобранные
     сессия.add(попытка)
@@ -70,6 +95,7 @@ def проверить_тест(
 
     return {
         "done": True,
+        "from_zero": False,
         "level": уровень.value,
         "level_label": уровень.подпись,
         "correct": попытка.correct_count,
@@ -96,20 +122,19 @@ def _адрес(путь: str) -> str:
 
 # --- проверка заданий ---
 
-@роутер.post("/task/{task_id}/check")
+@роутер.post("/task/{task_id}/check", tags=["уроки"], response_model=с.TaskResult)
 def проверить_задание(
     task_id: int,
-    данные: dict = Body(...),
-    юзер: User | None = Depends(текущий_пользователь),
+    данные: с.TaskAnswer,
+    юзер: User = Depends(нужен_пользователь),
     сессия: Session = Depends(получить_сессию),
 ):
-    юзер = _нужен_вход(юзер)
     задание = сессия.get(Task, task_id)
     if задание is None or задание.lesson.module.course.user_id != юзер.id:
         raise HTTPException(status_code=404, detail="Задание не найдено")
 
-    ответ_ученика = str(данные.get("answer", ""))
-    код = str(данные.get("code", ""))
+    ответ_ученика = данные.answer
+    код = данные.code
     верно, вывод, ошибка, детали = False, "", "", []
 
     if задание.kind == ТипЗадания.КОД:
@@ -168,15 +193,14 @@ def проверить_задание(
     }
 
 
-@роутер.post("/task/{task_id}/hint")
+@роутер.post("/task/{task_id}/hint", tags=["уроки"], response_model=с.HintOut)
 def подсказка(
     task_id: int,
-    данные: dict = Body(default={}),
-    юзер: User | None = Depends(текущий_пользователь),
+    данные: с.HintRequest,
+    юзер: User = Depends(нужен_пользователь),
     сессия: Session = Depends(получить_сессию),
 ):
     """Живая подсказка от модели по коду ученика. Без ключа — статичная из задания."""
-    юзер = _нужен_вход(юзер)
     задание = сессия.get(Task, task_id)
     if задание is None or задание.lesson.module.course.user_id != юзер.id:
         raise HTTPException(status_code=404, detail="Задание не найдено")
@@ -186,7 +210,7 @@ def подсказка(
         return {"hint": задание.hint or "Перечитайте условие и разберите пример из теории.",
                 "source": "static"}
 
-    код = str(данные.get("code", ""))[:2000]
+    код = данные.code[:2000]
     try:
         ответ = клиент.спросить(
             "Ты наставник по Python. Отвечай двумя-тремя предложениями по-русски. "
@@ -202,10 +226,9 @@ def подсказка(
 
 # --- колесо ---
 
-@роутер.get("/wheel/state")
-def состояние_колеса(юзер: User | None = Depends(текущий_пользователь),
+@роутер.get("/wheel/state", tags=["колесо"], response_model=с.WheelState)
+def состояние_колеса(юзер: User = Depends(нужен_пользователь),
                      сессия: Session = Depends(получить_сессию)):
-    юзер = _нужен_вход(юзер)
     return {
         "spins": Экономика(сессия).доступно_вращений(юзер),
         "coins": юзер.coins,
@@ -213,10 +236,9 @@ def состояние_колеса(юзер: User | None = Depends(текущи
     }
 
 
-@роутер.post("/wheel/spin")
-def крутить_колесо(юзер: User | None = Depends(текущий_пользователь),
+@роутер.post("/wheel/spin", tags=["колесо"], response_model=с.WheelSpin)
+def крутить_колесо(юзер: User = Depends(нужен_пользователь),
                    сессия: Session = Depends(получить_сессию)):
-    юзер = _нужен_вход(юзер)
     экономика = Экономика(сессия)
     try:
         вращение = экономика.крутить(юзер)
@@ -232,10 +254,14 @@ def крутить_колесо(юзер: User | None = Depends(текущий_�
 
 # --- магазин ---
 
-@роутер.post("/shop/buy/{sku}")
-def купить(sku: str, юзер: User | None = Depends(текущий_пользователь),
+@роутер.post("/shop/buy/{sku}", tags=["магазин"], response_model=с.PurchaseOut,
+             summary="Купить скин")
+def купить(sku: str, юзер: User = Depends(нужен_пользователь),
            сессия: Session = Depends(получить_сессию)):
-    юзер = _нужен_вход(юзер)
+    """Скин попадает в коллекцию и сразу становится активным.
+
+    400 — не хватает монет или уровень коллекции ещё не открыт.
+    """
     предмет = сессия.scalar(select(Item).where(Item.sku == sku, Item.is_active.is_(True)))
     if предмет is None:
         raise HTTPException(status_code=404, detail="Предмет не найден")
@@ -247,21 +273,20 @@ def купить(sku: str, юзер: User | None = Depends(текущий_пол
             "slot": предмет.slot.value, "asset": предмет.asset_key}
 
 
-@роутер.post("/shop/equip/{sku}")
-def надеть(sku: str, юзер: User | None = Depends(текущий_пользователь),
+@роутер.post("/shop/equip/{sku}", tags=["магазин"], response_model=с.EquipOut,
+             summary="Сделать ежа активным")
+def надеть(sku: str, юзер: User = Depends(нужен_пользователь),
            сессия: Session = Depends(получить_сессию)):
-    юзер = _нужен_вход(юзер)
+    """Активным становится скин из коллекции, прежний перестаёт быть активным. 404 — скина нет в коллекции."""
     предмет = сессия.scalar(select(Item).where(Item.sku == sku))
     покупка = сессия.scalar(
         select(UserItem).where(UserItem.user_id == юзер.id, UserItem.item_id == предмет.id)
     ) if предмет else None
     if покупка is None:
         raise HTTPException(status_code=404, detail="Этого предмета у вас нет")
-    экономика = Экономика(сессия)
-    if покупка.is_equipped:
-        экономика.снять(покупка)
-    else:
-        экономика.надеть(юзер, покупка)
+    # Активный ёж всегда ровно один: снять его, оставив пустое место, нельзя.
+    # Повторный запрос на уже активного ничего не меняет.
+    Экономика(сессия).надеть(юзер, покупка)
     сессия.commit()
     return {"ok": True, "equipped": покупка.is_equipped, "slot": предмет.slot.value,
             "asset": предмет.asset_key}
