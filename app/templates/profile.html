@@ -39,6 +39,28 @@
   </div>
 </section>
 
+{# ── Коллекция ежей: купленные скины, один из них активный ── #}
+<section style="padding-bottom:8px">
+  <h2>Коллекция ежей <span class="тише" style="font-weight:400">{{ коллекция | length }} из 54</span></h2>
+  <p class="тише" style="margin-bottom:16px">
+    Активный ёж показывается на всех экранах. Новых — в <a href="{{ база }}/shop">магазине</a>.
+  </p>
+  <div class="скины">
+    {% for запись in коллекция %}
+      <div class="карта товар скин-карта куплено {{ 'надет' if запись.is_equipped }}" data-sku="{{ запись.item.sku }}">
+        <img src="{{ база }}/static/img/skins/{{ запись.item.asset_key }}.webp" alt="{{ запись.item.name }}" loading="lazy">
+        <h3>{{ запись.item.name }}</h3>
+        {% if запись.is_equipped %}
+          <button class="кнопка тихая" disabled>Активный</button>
+        {% else %}
+          <button class="кнопка тихая надеть">Сделать активным</button>
+        {% endif %}
+        <div class="тише сообщение"></div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
 {# ── Медали: требование 3.5, UC-7 ── #}
 <section style="padding-bottom:56px">
   {% set получено = медали | selectattr('1') | list | length %}
@@ -63,3 +85,4 @@
   </div>
 </section>
 {% endblock %}
+{% block скрипты %}<script src="{{ база }}/static/js/shop.js"></script>{% endblock %}
