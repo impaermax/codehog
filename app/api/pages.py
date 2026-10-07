@@ -125,22 +125,35 @@ def регистрация(
     return ответ
 
 
+def _куда_после_входа(next_: str) -> str:
+    """Адрес возврата после входа — только внутри приложения, иначе в курс.
+
+    Принимаем лишь пути нашего подкаталога: ссылка вида ?next=https://чужой.сайт
+    не должна уводить человека со стенда после ввода пароля.
+    """
+    if next_.startswith(f"{БАЗА}/") and not next_.startswith("//"):
+        return next_
+    return f"{БАЗА}/app"
+
+
 @роутер.get("/login", response_class=HTMLResponse)
-def страница_входа(request: Request, сессия: Session = Depends(получить_сессию)):
+def страница_входа(request: Request, next: str = "", сессия: Session = Depends(получить_сессию)):
     return шаблоны.TemplateResponse(
-        request, "login.html", _контекст(request, None, сессия))
+        request, "login.html", _контекст(request, None, сессия, next=_куда_после_входа(next)))
 
 
 @роутер.post("/login")
 def вход(request: Request, email: str = Form(...), password: str = Form(...),
-         сессия: Session = Depends(получить_сессию)):
+         next: str = Form(""), сессия: Session = Depends(получить_сессию)):
     try:
         юзер = Аутентификация(сессия).войти(email, password)
     except ОшибкаВхода as e:
         return шаблоны.TemplateResponse(
-        request, "login.html", _контекст(request, None, сессия, ошибка=str(e)), status_code=400
+            request, "login.html",
+            _контекст(request, None, сессия, ошибка=str(e), next=_куда_после_входа(next)),
+            status_code=400,
         )
-    ответ = RedirectResponse(f"{БАЗА}/app", status_code=303)
+    ответ = RedirectResponse(_куда_после_входа(next), status_code=303)
     ответ.set_cookie(COOKIE, Аутентификация.подписать(юзер.id), max_age=60 * 60 * 24 * 30,
                      httponly=True, samesite="lax")
     return ответ

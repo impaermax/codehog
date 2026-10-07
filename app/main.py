@@ -24,6 +24,7 @@ from app.services.admin import Админка
 from app.services.auth import COOKIE, Аутентификация
 from app.services.migrate import дополнить_схему
 from app.services.awards import засеять_награды
+from app.services.course import перезаполнить_шаблонные
 from app.services.seed import засеять_каталог
 
 # Журнал сервера: время, уровень (INFO, WARNING, ERROR, CRITICAL), источник, сообщение.
@@ -53,6 +54,8 @@ def подготовить() -> None:
             try:
                 добавлено = засеять_каталог(сессия)
                 медалей, мемов = засеять_награды(сессия)
+                if (очищено := перезаполнить_шаблонные(сессия)):
+                    лог.info("уроков со старым шаблоном очищено: %s", очищено)
                 админ = Админка(сессия).создать_админа(settings.admin_password)
                 лог.info("Админ: %s / пароль из ADMIN_PASSWORD", админ.username)
                 лог.info("Медалей добавлено: %s, мемов: %s", медалей, мемов)

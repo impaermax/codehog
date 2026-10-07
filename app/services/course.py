@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Course, Lesson, Module, Task, User, Уровень, ТипЗадания
+from app.models import Course, Lesson, Module, Submission, Task, User, Уровень, ТипЗадания
 from app.services.ai import ИИНедоступен, КлиентИИ
 from app.services.curriculum import МодульКурса, ТемаУрока, каркас, все_модули
 from app.services.ready_lessons import ГОТОВЫЕ_УРОКИ
@@ -292,6 +293,30 @@ class ГенераторКурса:
             if урок.order_index < len(модуль.уроки):
                 return модуль.уроки[урок.order_index]
         return ТемаУрока(урок.title, урок.title, ("python",))
+
+
+# Задача на код из старого общего шаблона. По ней узнаём уроки, собранные
+# до появления готовых уроков: задания там не по теме урока.
+_СТАРЫЙ_ШАБЛОН = "Напишите функцию solve(numbers), которая вернёт сумму чётных чисел списка."
+
+
+def перезаполнить_шаблонные(сессия: Session) -> int:
+    """Очищает незавершённые уроки со старыми шаблонными заданиями.
+
+    Урок без заданий наполняется заново при открытии: готовым уроком,
+    если он есть, иначе моделью. Пройденные уроки не трогаем — это история
+    ученика. Повторный вызов безопасен.
+    """
+    уроки = сессия.scalars(
+        select(Lesson).join(Task).where(Lesson.is_completed.is_(False), Task.prompt == _СТАРЫЙ_ШАБЛОН)
+    ).unique().all()
+    for урок in уроки:
+        номера = [з.id for з in урок.tasks]
+        сессия.execute(delete(Submission).where(Submission.task_id.in_(номера)))
+        урок.tasks.clear()
+        урок.theory = ""
+    сессия.commit()
+    return len(уроки)
 
 
 def запасной_урок(тема: ТемаУрока, уровень: Уровень) -> dict:
