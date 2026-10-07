@@ -6,6 +6,7 @@
   let текущий = null;
   let выбран = null;
   let всегоПоказано = 0;
+  let опыт = "";      // ответ на вопрос «программировал ли раньше»
 
   const $ = (id) => document.getElementById(id);
 
@@ -37,12 +38,20 @@
   }
 
   async function отправитьЭтап() {
-    const ответ = await fetch(`${БАЗА}/hog/test/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers: ответы }),
-    });
-    const данные = await ответ.json();
+    let данные;
+    try {
+      const ответ = await fetch(`${БАЗА}/hog/test/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: ответы, experience: опыт }),
+      });
+      данные = await ответ.json();
+      if (!ответ.ok) throw ошибкаОтвета(ответ, данные);
+    } catch (e) {
+      // ответы не теряются: повтор отправит тот же этап ещё раз
+      показатьОшибку(текстОшибки(e), отправитьЭтап);
+      return;
+    }
     if (!данные.done) {
       очередь = данные.questions;
       показать(очередь.shift());
@@ -55,10 +64,20 @@
     $("ход").style.display = "none";
     $("итог").style.display = "block";
     $("уровень").textContent = д.level_label;
-    $("счёт").textContent = `Верно ${д.correct} из ${д.total}`;
-    $("пробелы").textContent = д.weak_topics.length
-      ? "Обратим внимание на: " + д.weak_topics.join(", ")
-      : "Пробелов не нашли — стартуем бодро.";
+    if (д.from_zero) {
+      // тест не проходили — показываем, с чего начнётся курс
+      $("счёт").textContent = "Тест пропускаем: начнём с самого начала.";
+      $("пробелы").textContent = "Первый модуль — что такое программа, команда print и как читать ошибки.";
+      $("карта-разбора").style.display = "none";
+    } else {
+      $("счёт").textContent = `Верно ${д.correct} из ${д.total}`;
+      $("пробелы").textContent = (д.weak_topics.length
+        ? "Обратим внимание на: " + д.weak_topics.join(", ") + "."
+        : "Пробелов не нашли — стартуем бодро.")
+        + (опыт === "other"
+          ? " Курс начнётся с модуля «Python после другого языка»: знакомые конструкции в синтаксисе Python."
+          : "");
+    }
     $("кдалее").href = `${БАЗА}/register`;
 
     const разбор = $("разбор");
@@ -82,5 +101,18 @@
   $("дальше").onclick = () => выбран && принять(выбран);
   $("незнаю").onclick = () => принять("");
 
-  показать(очередь.shift());
+  // Сначала вопрос про опыт. «Никогда» — сразу итог без теста,
+  // иначе показываем первый вопрос теста.
+  document.querySelectorAll("[data-опыт]").forEach((кнопка) => {
+    кнопка.onclick = () => {
+      опыт = кнопка.dataset.опыт;
+      $("опыт").style.display = "none";
+      if (опыт === "none") {
+        отправитьЭтап();
+      } else {
+        $("ход").style.display = "block";
+        показать(очередь.shift());
+      }
+    };
+  });
 })();

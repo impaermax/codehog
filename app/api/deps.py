@@ -1,12 +1,15 @@
-"""Общие зависимости запросов."""
+"""Общие зависимости запросов (Depends) и единый шаблонизатор."""
 from __future__ import annotations
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import получить_сессию
 from app.models import User
 from app.services.auth import COOKIE, Аутентификация
+from app.services.text import разметка
 
 
 def текущий_пользователь(
@@ -19,10 +22,14 @@ def текущий_пользователь(
     return сессия.get(User, uid)
 
 
-from fastapi.templating import Jinja2Templates
+def нужен_пользователь(юзер: User | None = Depends(текущий_пользователь)) -> User:
+    """То же, но для JSON-ручек, куда гостю нельзя: без входа — 401.
 
-from app.config import settings
-from app.services.text import разметка
+    Проверка входа живёт в зависимости, а не копируется в каждую ручку.
+    """
+    if юзер is None:
+        raise HTTPException(status_code=401, detail="Нужно войти")
+    return юзер
 
 # Единственный экземпляр шаблонизатора на всё приложение.
 #
@@ -33,6 +40,7 @@ from app.services.text import разметка
 шаблоны = Jinja2Templates(directory="app/templates")
 шаблоны.env.filters["разметка"] = разметка
 шаблоны.env.globals["база"] = settings.base_path
+шаблоны.env.globals["почта_для_обращений"] = settings.contact_email
 
 
 def контекст_шаблона(request: Request, юзер, сессия, **прочее) -> dict:

@@ -17,10 +17,10 @@ from __future__ import annotations
 СЛОВАРЬ: dict[str, dict[str, str]] = {
     "ru": {
         "герой.заголовок1": "Освой Python.",
-        "герой.заголовок2": "Прокачай",
-        "герой.акцент": "кибер-ежа",
+        "герой.заголовок2": "Собери",
+        "герой.акцент": "всех ежей",
         "герой.подзаголовок": "Шесть заданий определят твой уровень. Дальше — короткие уроки "
-                             "ровно под тебя, монеты за практику и ёж, которого ты одеваешь сам.",
+                             "ровно под тебя, монеты за практику и 54 ежа в коллекции.",
         "герой.кнопка": "Пройти тест →",
         "герой.подкнопкой": "Без регистрации · 5–8 минут · можно с нуля",
         "шаг.тест": "Тест на уровень",
@@ -39,8 +39,8 @@ from __future__ import annotations
         "блок.код.текст": "Пишешь функцию — она запускается и прогоняется тестами. Видно, "
                           "что вернулось и где именно разошлось с ожидаемым.",
         "блок.монеты.титул": "Монеты и ёж",
-        "блок.монеты.текст": "За уроки и серии дней падают монеты. На них — кепка, очки, худи, "
-                             "а дальше хог-мобиль и кибер-лофт.",
+        "блок.монеты.текст": "За уроки и серии дней падают монеты. На них покупаются скины ежа, "
+                             "а каждый пройденный модуль открывает новый уровень коллекции.",
         "шапка.войти": "Войти",
         "шапка.выйти": "Выйти",
         "шапка.магазин": "Магазин",
@@ -48,10 +48,10 @@ from __future__ import annotations
     },
     "en": {
         "герой.заголовок1": "Learn Python.",
-        "герой.заголовок2": "Level up your",
-        "герой.акцент": "cyber hedgehog",
+        "герой.заголовок2": "Collect",
+        "герой.акцент": "every hedgehog",
         "герой.подзаголовок": "Six questions find your level. Then short lessons built for you, "
-                             "coins for practice, and a hedgehog you dress yourself.",
+                             "coins for practice, and 54 hedgehogs to collect.",
         "герой.кнопка": "Take the test →",
         "герой.подкнопкой": "No sign-up · 5–8 minutes · beginners welcome",
         "шаг.тест": "Placement test",
@@ -70,8 +70,8 @@ from __future__ import annotations
         "блок.код.текст": "Write a function and it is executed against real tests. You see what "
                           "it returned and exactly where it differs from the expected value.",
         "блок.монеты.титул": "Coins and the hedgehog",
-        "блок.монеты.текст": "Lessons and daily streaks drop coins. Spend them on a cap, glasses, "
-                             "a hoodie — and later a hog-mobile and a cyber loft.",
+        "блок.монеты.текст": "Lessons and daily streaks drop coins. Spend them on hedgehog skins — "
+                             "every finished module unlocks a new tier of the collection.",
         "шапка.войти": "Sign in",
         "шапка.выйти": "Sign out",
         "шапка.магазин": "Shop",
@@ -101,8 +101,6 @@ from __future__ import annotations
         "блок.код.текст": "Ахьа функци язъеча, иза чекхйолу а, тесташца толлу а. Гуш ду цо "
                           "хIун жоп делла а, мичахь хийцалуш ду а.",
         "блок.монеты.титул": "Ахча а, зу а",
-        "блок.монеты.текст": "Дешаршна а, денойн могIаршна а ахча делла. Цуьнца — кепка, "
-                             "бIаьргаш, худи, тIаккха хог-мобиль а, кибер-лофт а.",
         "шапка.войти": "ЧуьраваллаI",
         "шапка.выйти": "Аравала",
         "шапка.магазин": "Туька",

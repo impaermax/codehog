@@ -5,11 +5,11 @@ import re
 
 import bcrypt
 from itsdangerous import BadSignature, URLSafeSerializer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import User, Уровень
+from app.models import BonusGrant, User, Уровень
 
 COOKIE = "codehog_session"
 _подписчик = URLSafeSerializer(settings.secret_key, salt="codehog-auth")
@@ -53,9 +53,13 @@ class Аутентификация:
         if self.сессия.scalar(select(User).where(User.username == username)):
             username = f"{username}{self.сессия.query(User).count() + 1}"
 
+        # Бонусы из админки — подарок тем, кто уже был с нами в момент раздачи.
+        # Без этой отметки новичок при первом входе получал все прошлые подарки.
+        последний_бонус = self.сессия.scalar(select(func.max(BonusGrant.id))) or 0
         юзер = User(
             email=email, username=username,
             password_hash=self.хеш(пароль), level=уровень,
+            last_bonus_id=последний_бонус,
         )
         self.сессия.add(юзер)
         self.сессия.commit()

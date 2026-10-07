@@ -44,27 +44,33 @@ from app.models import (
     ("streak_30",    "Месяц огня",     "Тридцать дней занятий подряд",            "🌋", ТипУсловия.СТРИК,       30,   60),
     ("coins_100",    "Первая сотня",   "Заработано 100 монет за всё время",       "🪙", ТипУсловия.МОНЕТЫ,      100,  70),
     ("coins_1000",   "Тысячник",       "Заработано 1000 монет за всё время",      "💰", ТипУсловия.МОНЕТЫ,      1000, 80),
-    ("items_3",      "Модник",         "Куплено три предмета",                    "🎩", ТипУсловия.ПРЕДМЕТЫ,    3,    90),
+    ("items_3",      "Модник",         "В коллекции три ежа",                     "🎩", ТипУсловия.ПРЕДМЕТЫ,    3,    90),
     ("wheel_5",      "Везунчик",       "Колесо прокручено пять раз",              "🎡", ТипУсловия.КОЛЕСО,      5,    100),
     ("flawless_5",   "Без осечек",     "Пять заданий решено с первой попытки",    "✨", ТипУсловия.БЕЗ_ОШИБОК,  5,    110),
 ]
 
 # Мемы — данные, а не код. Подборку можно заменить целиком, не трогая логику.
 КАТАЛОГ_МЕМОВ = [
-    ("works_local", "/static/img/мемы/works-local.webp", "Работает на моей машине"),
-    ("semicolon",   "/static/img/мемы/semicolon.webp",   "Три часа искал опечатку"),
-    ("it_compiles", "/static/img/мемы/it-compiles.webp", "Заработало с первого раза. Подозрительно"),
-    ("indent",      "/static/img/мемы/indent.webp",      "Python и отступы"),
-    ("stack",       "/static/img/мемы/stack.webp",       "Скопировал со Stack Overflow"),
-    ("off_by_one",  "/static/img/мемы/off-by-one.webp",  "Ошибка на единицу"),
+    ("works_local", "/static/img/memes/works-local.webp", "Работает на моей машине"),
+    ("semicolon",   "/static/img/memes/semicolon.webp",   "Три часа искал опечатку"),
+    ("it_compiles", "/static/img/memes/it-compiles.webp", "Заработало с первого раза. Подозрительно"),
+    ("indent",      "/static/img/memes/indent.webp",      "Python и отступы"),
+    ("stack",       "/static/img/memes/stack.webp",       "Скопировал со Stack Overflow"),
+    ("off_by_one",  "/static/img/memes/off-by-one.webp",  "Ошибка на единицу"),
 ]
 
 
 def засеять_награды(сессия: Session) -> tuple[int, int]:
-    """Добавляет недостающие медали и мемы. Повторный вызов безопасен."""
+    """Добавляет недостающие медали и мемы. Повторный вызов безопасен.
+
+    У уже существующих медалей и мемов тексты и адрес картинки сверяются
+    с каталогом: правка в коде доезжает до базы при следующем запуске.
+    """
     медалей = мемов = 0
     for код, имя, описание, значок, условие, порог, порядок in КАТАЛОГ_МЕДАЛЕЙ:
-        if сессия.scalar(select(Achievement).where(Achievement.code == код)):
+        медаль = сессия.scalar(select(Achievement).where(Achievement.code == код))
+        if медаль is not None:
+            медаль.title, медаль.description, медаль.icon = имя, описание, значок
             continue
         сессия.add(Achievement(
             code=код, title=имя, description=описание, icon=значок,
@@ -72,7 +78,9 @@ def засеять_награды(сессия: Session) -> tuple[int, int]:
         ))
         медалей += 1
     for порядок, (код, ссылка, подпись) in enumerate(КАТАЛОГ_МЕМОВ, start=1):
-        if сессия.scalar(select(Meme).where(Meme.code == код)):
+        мем = сессия.scalar(select(Meme).where(Meme.code == код))
+        if мем is not None:
+            мем.image_url = ссылка
             continue
         сессия.add(Meme(code=код, image_url=ссылка, caption=подпись, sort_order=порядок * 10))
         мемов += 1

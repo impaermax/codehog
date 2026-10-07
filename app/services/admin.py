@@ -184,7 +184,7 @@ class Админка:
         for бонус in новые:
             юзер.coins += бонус.amount
             self.сессия.add(CoinTransaction(
-                user_id=юзер.id, amount=бонус.amount, reason=ПричинаМонет.СТРИК,
+                user_id=юзер.id, amount=бонус.amount, reason=ПричинаМонет.БОНУС,
                 comment=f"бонус: {бонус.comment}"[:255], balance_after=юзер.coins,
             ))
             юзер.last_bonus_id = бонус.id

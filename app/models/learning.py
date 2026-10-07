@@ -59,6 +59,10 @@ class TestAttempt(Base):
     determined_level: Mapped[Уровень | None] = mapped_column(
         Enum(Уровень, values_callable=lambda e: [x.value for x in e]), nullable=True
     )
+    # Опыт до начала курса — ответ на вопрос перед тестом:
+    # "none" — никогда не программировал, "other" — писал на другом языке,
+    # "python" — уже пишет на Python. Пусто у попыток, сделанных до появления вопроса.
+    experience: Mapped[str] = mapped_column(String(16), default="", nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=сейчас, nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

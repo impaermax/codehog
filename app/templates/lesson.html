@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_персонаж.html" import персонаж %}
 {% block заголовок %}{{ урок.title }} — CodeHogwarts{% endblock %}
 {% block содержимое %}
 
@@ -33,7 +34,7 @@
       </div>
     {% elif задание.kind.value == 'predict' %}
       <label for="ответ-{{ задание.id }}">Что выведет код?</label>
-      <input type="text" id="ответ-{{ задание.id }}" class="ответ" placeholder="например: [1, 2, 3]">
+      <input type="text" id="ответ-{{ задание.id }}" class="ответ" placeholder="Напиши, что появится на экране">
     {% else %}
       <label for="код-{{ задание.id }}">Твоё решение</label>
       <textarea id="код-{{ задание.id }}" class="редактор" spellcheck="false"
@@ -52,8 +53,7 @@
 {# ── Награда за урок: монеты, мем (3.1) и новые медали (3.5) ── #}
 <div class="награда" id="окно-награды">
   <div class="окно">
-    <img src="{{ база }}/static/img/ёж/ёж-радость.webp" alt="" width="140"
-         style="margin:0 auto 8px" loading="lazy">
+    {{ персонаж(надето, 130) }}
     <h2 style="margin:0 0 8px">Урок пройден</h2>
     <p id="текст-награды" class="тише"></p>
 
