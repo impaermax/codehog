@@ -1,99 +1,99 @@
 {% extends "base.html" %}
-{% block заголовок %}Панель — CodeHogwarts{% endblock %}
-{% block содержимое %}
+{% block title %}Панель — CodeHogwarts{% endblock %}
+{% block content %}
 <div style="padding:28px 0">
   <h1 style="margin:0 0 4px">Панель администратора</h1>
-  <p class="тише">Данные считаются по живой базе.</p>
+  <p class="muted">Данные считаются по живой базе.</p>
 
-  <section class="сетка три" style="margin:22px 0">
-    <div class="карта">
-      <div class="тише">Пользователи</div>
-      <div style="font-size:34px; font-weight:800">{{ а.всего }}</div>
-      <div class="тише">сегодня активны {{ а.активны_сегодня }} · за неделю {{ а.активны_за_неделю }}</div>
+  <section class="grid three" style="margin:22px 0">
+    <div class="card">
+      <div class="muted">Пользователи</div>
+      <div style="font-size:34px; font-weight:800">{{ stats.total_users }}</div>
+      <div class="muted">сегодня активны {{ stats.active_today }} · за неделю {{ stats.active_week }}</div>
     </div>
-    <div class="карта">
-      <div class="тише">Воронка</div>
-      <div style="font-size:34px; font-weight:800">{{ '%.0f' | format(а.конверсия_в_регистрацию) }}%</div>
-      <div class="тише">тестов {{ а.тестов_пройдено }} → регистраций {{ а.зарегистрировались_после_теста }}</div>
+    <div class="card">
+      <div class="muted">Воронка</div>
+      <div style="font-size:34px; font-weight:800">{{ '%.0f' | format(stats.registration_rate) }}%</div>
+      <div class="muted">тестов {{ stats.tests_taken }} → регистраций {{ stats.registered_after_test }}</div>
     </div>
-    <div class="карта">
-      <div class="тише">Задачи с кодом</div>
-      <div style="font-size:34px; font-weight:800">{{ '%.0f' | format(а.доля_успешных) }}%</div>
-      <div class="тише">успешных из {{ а.попыток_кода }} попыток</div>
+    <div class="card">
+      <div class="muted">Задачи с кодом</div>
+      <div style="font-size:34px; font-weight:800">{{ '%.0f' | format(stats.success_rate) }}%</div>
+      <div class="muted">успешных из {{ stats.code_attempts }} попыток</div>
     </div>
   </section>
 
-  <section class="сетка две" style="margin-bottom:22px">
-    <div class="карта">
+  <section class="grid two" style="margin-bottom:22px">
+    <div class="card">
       <h3 style="margin-top:0">Экономика</h3>
-      <p class="тише" style="margin:0">
-        Выдано <b style="color:var(--золото)">{{ а.монет_выдано }}</b> монет ·
-        потрачено <b>{{ а.монет_потрачено }}</b> ·
-        вращений колеса <b>{{ а.вращений }}</b>
+      <p class="muted" style="margin:0">
+        Выдано <b style="color:var(--gold)">{{ stats.coins_issued }}</b> монет ·
+        потрачено <b>{{ stats.coins_spent }}</b> ·
+        вращений колеса <b>{{ stats.spins }}</b>
       </p>
       <h3>По уровням</h3>
-      {% for уровень, сколько in а.по_уровням.items() %}
+      {% for level, count in stats.by_level.items() %}
         <div style="display:flex; justify-content:space-between; padding:4px 0">
-          <span>{{ уровень }}</span><b>{{ сколько }}</b>
+          <span>{{ level }}</span><b>{{ count }}</b>
         </div>
       {% endfor %}
     </div>
 
-    <div class="карта">
+    <div class="card">
       <h3 style="margin-top:0">Начислить бонус всем</h3>
-      <p class="тише">Упадёт каждому при следующем заходе — даже тем, кто сейчас офлайн.</p>
-      <form method="post" action="{{ база }}/admin/bonus">
+      <p class="muted">Упадёт каждому при следующем заходе — даже тем, кто сейчас офлайн.</p>
+      <form method="post" action="{{ base_path }}/admin/bonus">
         <label for="amount">Сколько монет</label>
         <input id="amount" name="amount" type="text" value="100" inputmode="numeric">
         <label for="comment">Повод (увидит пользователь)</label>
         <input id="comment" name="comment" type="text" placeholder="Выходной бонус">
-        <button class="кнопка" type="submit" style="width:100%">Начислить всем</button>
+        <button class="btn" type="submit" style="width:100%">Начислить всем</button>
       </form>
     </div>
   </section>
 
-  <section class="карта" style="margin-bottom:22px">
+  <section class="card" style="margin-bottom:22px">
     <h3 style="margin-top:0">Быстрые действия для себя</h3>
     <div style="display:flex; gap:10px; flex-wrap:wrap">
-      <form method="post" action="{{ база }}/admin/unlock"><button class="кнопка тихая">Выдать все скины</button></form>
-      <form method="post" action="{{ база }}/admin/complete"><button class="кнопка тихая">Пройти весь курс</button></form>
-      <form method="post" action="{{ база }}/admin/reset"
+      <form method="post" action="{{ base_path }}/admin/unlock"><button class="btn ghost">Выдать все скины</button></form>
+      <form method="post" action="{{ base_path }}/admin/complete"><button class="btn ghost">Пройти весь курс</button></form>
+      <form method="post" action="{{ base_path }}/admin/reset"
             onsubmit="return confirm('Сбросить свой прогресс до нуля?')">
-        <button class="кнопка тихая" style="color:var(--опасно)">Сбросить себя</button>
+        <button class="btn ghost" style="color:var(--danger)">Сбросить себя</button>
       </form>
     </div>
-    <p class="тише" style="margin-bottom:0">У админа монеты не списываются, покупки бесплатны,
+    <p class="muted" style="margin-bottom:0">У админа монеты не списываются, покупки бесплатны,
       колесо крутится без ограничения.</p>
   </section>
 
-  <section class="карта">
-    <h3 style="margin-top:0">Пользователи ({{ а.пользователи | length }})</h3>
+  <section class="card">
+    <h3 style="margin-top:0">Пользователи ({{ stats.users | length }})</h3>
     <div style="overflow-x:auto">
       <table style="width:100%; border-collapse:collapse; font-size:14px">
         <thead>
-          <tr style="text-align:left; color:var(--текст-тише)">
+          <tr style="text-align:left; color:var(--text-3)">
             <th style="padding:8px 6px">#</th><th>Имя</th><th>Почта</th><th>Уровень</th>
-            <th>Этап</th><th>Уроки</th><th>Монеты</th><th>Серия</th><th>Вещей</th>
+            <th>Этап</th><th>Уроки</th><th>Монеты</th><th>Серия</th><th>Скинов</th>
             <th>Активность</th><th></th>
           </tr>
         </thead>
         <tbody>
-          {% for с in а.пользователи %}
-            <tr style="border-top:1px solid var(--штрих)">
-              <td style="padding:8px 6px">{{ с.id }}</td>
-              <td><b>{{ с.username }}</b></td>
-              <td class="тише">{{ с.email }}</td>
-              <td>{{ с.уровень }}</td>
-              <td>{{ с.этап }}</td>
-              <td>{{ с.уроков }}/{{ с.всего_уроков }}</td>
-              <td style="color:var(--золото)">{{ с.монет }}</td>
-              <td>{{ с.стрик }}</td>
-              <td>{{ с.предметов }}</td>
-              <td class="тише">{{ с.последняя_активность }}</td>
+          {% for row in stats.users %}
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:8px 6px">{{ row.id }}</td>
+              <td><b>{{ row.username }}</b></td>
+              <td class="muted">{{ row.email }}</td>
+              <td>{{ row.level }}</td>
+              <td>{{ row.stage }}</td>
+              <td>{{ row.lessons_done }}/{{ row.total_lessons }}</td>
+              <td style="color:var(--gold)">{{ row.coins }}</td>
+              <td>{{ row.streak }}</td>
+              <td>{{ row.skins }}</td>
+              <td class="muted">{{ row.last_active }}</td>
               <td>
-                <form method="post" action="{{ база }}/admin/reset/{{ с.id }}"
-                      onsubmit="return confirm('Сбросить {{ с.username }}?')">
-                  <button class="бейдж" style="cursor:pointer; border:none">сброс</button>
+                <form method="post" action="{{ base_path }}/admin/reset/{{ row.id }}"
+                      onsubmit="return confirm('Сбросить {{ row.username }}?')">
+                  <button class="badge" style="cursor:pointer; border:none">сброс</button>
                 </form>
               </td>
             </tr>

@@ -1,9 +1,10 @@
-"""Награды за поведение: медали и мемы.
+"""Behaviour rewards: medals and memes.
 
-Медали закрывают требование 3.5 и UC-7, мемы — требование 3.1 и UC-2.
-Обе сущности задаются данными, а не кодом: их пополняют через каталог,
-не трогая логику. Это и есть требование масштабируемости из блока 5.
+Medals cover requirement 3.5 and UC-7, memes cover requirement 3.1 and UC-2.
+Both are defined by data rather than code: new ones are added to the catalog
+without touching the logic.
 """
+
 from __future__ import annotations
 
 import enum
@@ -13,38 +14,26 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, сейчас
+from app.models.base import Base, utc_now
 
 if TYPE_CHECKING:
     from app.models.user import User
 
 
-class ТипУсловия(str, enum.Enum):
-    """За что выдаётся медаль. Значение считается на сервере в момент проверки."""
+class ConditionType(enum.StrEnum):
+    """What a medal is awarded for. The value is computed on the server when checked."""
 
-    ТЕСТ = "test_passed"        # пройден вводный тест
-    УРОКИ = "lessons_done"      # решено N уроков
-    СТРИК = "streak_days"       # серия из N дней подряд
-    МОНЕТЫ = "coins_earned"     # заработано N монет за всё время
-    ПРЕДМЕТЫ = "items_owned"    # куплено N предметов
-    КОЛЕСО = "wheel_spins"      # колесо прокручено N раз
-    БЕЗ_ОШИБОК = "flawless"     # N заданий решено с первой попытки
-
-    @property
-    def подпись(self) -> str:
-        return {
-            "test_passed": "Вводный тест",
-            "lessons_done": "Пройдено уроков",
-            "streak_days": "Дней подряд",
-            "coins_earned": "Заработано монет",
-            "items_owned": "Куплено предметов",
-            "wheel_spins": "Вращений колеса",
-            "flawless": "Решено с первой попытки",
-        }[self.value]
+    TEST = "test_passed"  # placement test completed
+    LESSONS = "lessons_done"  # N lessons completed
+    STREAK = "streak_days"  # N days in a row
+    COINS = "coins_earned"  # N coins earned in total
+    ITEMS = "items_owned"  # N skins in the collection
+    WHEEL = "wheel_spins"  # wheel spun N times
+    FLAWLESS = "flawless"  # N tasks solved on the first attempt
 
 
 class Achievement(Base):
-    """Медаль: что за неё дают и при каком условии она выдаётся."""
+    """A medal: what it is called and under which condition it is awarded."""
 
     __tablename__ = "achievements"
 
@@ -53,24 +42,22 @@ class Achievement(Base):
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     icon: Mapped[str] = mapped_column(String(16), default="🏅", nullable=False)
-    condition_type: Mapped[ТипУсловия] = mapped_column(
-        Enum(ТипУсловия, values_callable=lambda e: [x.value for x in e]), nullable=False
+    condition_type: Mapped[ConditionType] = mapped_column(
+        Enum(ConditionType, values_callable=lambda e: [x.value for x in e]), nullable=False
     )
     target_value: Mapped[int] = mapped_column(Integer, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    holders: Mapped[list["UserAchievement"]] = relationship(
+    holders: Mapped[list[UserAchievement]] = relationship(
         back_populates="achievement", cascade="all, delete-orphan"
     )
 
 
 class UserAchievement(Base):
-    """Факт выдачи медали. Пара уникальна — одна медаль выдаётся ровно один раз."""
+    """A medal awarded to a user. The pair is unique, so a medal is awarded only once."""
 
     __tablename__ = "user_achievements"
-    __table_args__ = (
-        UniqueConstraint("user_id", "achievement_id", name="uq_user_achievement"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "achievement_id", name="uq_user_achievement"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -78,18 +65,18 @@ class UserAchievement(Base):
         ForeignKey("achievements.id", ondelete="CASCADE"), index=True
     )
     awarded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=сейчас, nullable=False
+        DateTime(timezone=True), default=utc_now, nullable=False
     )
 
-    user: Mapped["User"] = relationship(back_populates="achievements")
-    achievement: Mapped["Achievement"] = relationship(back_populates="holders")
+    user: Mapped[User] = relationship(back_populates="achievements")
+    achievement: Mapped[Achievement] = relationship(back_populates="holders")
 
 
 class Meme(Base):
-    """Картинка, которую показывают после пройденного урока.
+    """An image shown after a completed lesson.
 
-    Хранится ссылкой, а не файлом: подборку можно заменить целиком,
-    не трогая код и не передеплоивая приложение.
+    Stored as a URL rather than a file, so the whole set can be replaced
+    without changing code.
     """
 
     __tablename__ = "memes"

@@ -1,31 +1,32 @@
-"""Минимальная разметка для теории урока.
+"""Minimal markup for lesson theory.
 
-Модель пишет теорию с Markdown-выделением, а Jinja выводит её как есть —
-на экране оставались голые звёздочки. Полноценный markdown-движок ради
-трёх начертаний тянуть незачем, да и небезопасно: теория приходит от
-языковой модели, то есть это недоверенный текст.
+The model writes theory with Markdown emphasis, and Jinja would print it
+as is, leaving bare asterisks on screen. A full Markdown engine is not worth
+it for three styles, and it would be unsafe: theory comes from a language
+model, so it is untrusted text.
 
-Порядок здесь принципиален: сначала экранируем всё, потом добавляем
-разрешённые теги. Обратный порядок открыл бы инъекцию HTML.
+The order matters: escape everything first, then add the allowed tags.
+The reverse order would open an HTML injection.
 """
+
 from __future__ import annotations
 
 import re
 
 from markupsafe import Markup, escape
 
-_ЖИРНЫЙ = re.compile(r"\*\*(.+?)\*\*", re.S)
-_КУРСИВ = re.compile(r"(?<![\*\w])\*([^\*\n]+?)\*(?![\*\w])")
-_КОД = re.compile(r"`([^`\n]+?)`")
+_BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
+_ITALIC = re.compile(r"(?<![\*\w])\*([^\*\n]+?)\*(?![\*\w])")
+_CODE = re.compile(r"`([^`\n]+?)`")
 
 
-def разметка(текст: str | None) -> Markup:
-    """**жирный**, *курсив*, `код` и переводы строк. Остальное — обычный текст."""
-    if not текст:
+def markup(text: str | None) -> Markup:
+    """**bold**, *italic*, `code` and line breaks. Everything else stays plain text."""
+    if not text:
         return Markup("")
-    безопасно = str(escape(текст))
-    безопасно = _КОД.sub(r"<code>\1</code>", безопасно)
-    безопасно = _ЖИРНЫЙ.sub(r"<strong>\1</strong>", безопасно)
-    безопасно = _КУРСИВ.sub(r"<em>\1</em>", безопасно)
-    безопасно = безопасно.replace("\n\n", "</p><p>").replace("\n", "<br>")
-    return Markup(f"<p>{безопасно}</p>")
+    safe = str(escape(text))
+    safe = _CODE.sub(r"<code>\1</code>", safe)
+    safe = _BOLD.sub(r"<strong>\1</strong>", safe)
+    safe = _ITALIC.sub(r"<em>\1</em>", safe)
+    safe = safe.replace("\n\n", "</p><p>").replace("\n", "<br>")
+    return Markup(f"<p>{safe}</p>")

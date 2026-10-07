@@ -1,1 +1,1 @@
-"""HTTP-слой: страницы и JSON-эндпоинты."""
+"""HTTP layer: HTML pages and JSON endpoints."""

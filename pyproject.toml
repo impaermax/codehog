@@ -1,0 +1,18 @@
+[project]
+name = "codehogwarts"
+version = "0.1.0"
+description = "A gamified Python trainer"
+requires-python = ">=3.12"
+
+[tool.ruff]
+# PEP 8 lets a team agree on lines of up to 99 characters
+line-length = 99
+target-version = "py312"
+extend-exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, pep8-naming, bugbear, pyupgrade, import sorting
+select = ["E", "F", "W", "N", "B", "UP", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

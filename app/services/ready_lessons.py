@@ -1,27 +1,30 @@
-"""Готовые уроки, написанные вручную.
+"""Hand-written lessons.
 
-Модель генерирует урок до 25 секунд, поэтому первый урок курса наполняется
-сразу, без неё. Раньше для этого был один общий шаблон, и человек, который
-впервые видит код, первым делом получал задачу про сумму чётных чисел списка.
+Generating a lesson with the model takes up to 25 seconds, so the first lesson
+of a course is filled right away without it. It used to come from one generic
+template, and a learner who had never seen code first got a task about summing
+the even numbers of a list.
 
-Здесь лежат уроки, с которых курс может начаться: оба вводных модуля целиком
-и первый урок каждого уровня. Вводные модули модели не отдаются вовсе: их
-читают люди, которые ещё не программировали, и задания им нужны выверенные.
+These are the lessons a course can start with: both intro modules in full and
+the first lesson of every level. Intro modules are never sent to the model:
+they are read by people who have never programmed, so their tasks must be vetted.
 
-Ключ — название темы из curriculum.py. Формат тот же, что у ответа модели,
-и проходит ту же проверку: эталон каждой задачи на код реально запускается.
+The key is the topic title from curriculum.py. The format matches the model's
+reply and passes the same validation: every code task's reference solution is run.
+Lesson texts are learner-facing content and stay in Russian.
 """
+
 from __future__ import annotations
 
-ГОТОВЫЕ_УРОКИ: dict[str, dict] = {
-    # --- вводный модуль «Что такое программа» ---
+READY_LESSONS: dict[str, dict] = {
+    # --- intro module "What is a program" ---
     "Как мыслит компьютер": {
         "title": "Как мыслит компьютер",
         "theory": (
             "**Программа — это рецепт.** Компьютер не догадывается, чего ты хочешь: "
             "он выполняет команды строго по очереди, сверху вниз, ровно так, как написано.\n\n"
             "Команда `print` выводит текст на экран. Программа из трёх команд:\n"
-            "`print(\"Налить воду\")`\n`print(\"Вскипятить\")`\n`print(\"Заварить чай\")`\n\n"
+            '`print("Налить воду")`\n`print("Вскипятить")`\n`print("Заварить чай")`\n\n'
             "Поменяешь строки местами — и чай заварится раньше, чем закипит вода."
         ),
         "tasks": [
@@ -37,8 +40,12 @@ from __future__ import annotations
                 "type": "quiz",
                 "prompt": "В каком порядке компьютер выполняет команды?",
                 "code": "",
-                "options": ["Сверху вниз, по очереди", "В случайном порядке",
-                            "Сначала самые важные", "Снизу вверх"],
+                "options": [
+                    "Сверху вниз, по очереди",
+                    "В случайном порядке",
+                    "Сначала самые важные",
+                    "Снизу вверх",
+                ],
                 "answer": "Сверху вниз, по очереди",
                 "hint": "Вспомни рецепт: шаги идут один за другим.",
                 "explanation": "Команды выполняются по порядку, начиная с первой строки.",
@@ -46,12 +53,20 @@ from __future__ import annotations
             {
                 "type": "code",
                 "prompt": "Рецепт перепутан. Расставь шаги в правильном порядке: "
-                          "сначала налить воду, потом вскипятить, потом заварить.",
-                "starter_code": 'def solve():\n    return ["заварить", "налить воду", "вскипятить"]',
-                "reference_solution": 'def solve():\n    return ["налить воду", "вскипятить", "заварить"]',
-                "tests": [{"call": "solve()", "expect": ["налить воду", "вскипятить", "заварить"]}],
+                "сначала налить воду, потом вскипятить, потом заварить.",
+                "starter_code": (
+                    'def solve():\n    return ["заварить", "налить воду", "вскипятить"]'
+                ),
+                "reference_solution": (
+                    'def solve():\n    return ["налить воду", "вскипятить", "заварить"]'
+                ),
+                "tests": [
+                    {"call": "solve()", "expect": ["налить воду", "вскипятить", "заварить"]}
+                ],
                 "hint": "Меняй местами только слова в кавычках, остальное не трогай.",
-                "explanation": "Порядок важен: компьютер выполнит шаги ровно так, как они записаны.",
+                "explanation": (
+                    "Порядок важен: компьютер выполнит шаги ровно так, как они записаны."
+                ),
             },
         ],
     },
@@ -59,9 +74,9 @@ from __future__ import annotations
         "title": "Первая команда print",
         "theory": (
             "`print` выводит на экран то, что стоит в скобках.\n\n"
-            "**Текст** пишется в кавычках: `print(\"кот\")` покажет кот.\n"
+            '**Текст** пишется в кавычках: `print("кот")` покажет кот.\n'
             "**Числа** пишутся без кавычек, и с ними можно считать: `print(3 + 2)` покажет 5.\n\n"
-            "Кавычки меняют смысл: `print(\"3 + 2\")` покажет 3 + 2 — это уже просто текст, "
+            'Кавычки меняют смысл: `print("3 + 2")` покажет 3 + 2 — это уже просто текст, '
             "компьютер его не считает."
         ),
         "tasks": [
@@ -85,7 +100,7 @@ from __future__ import annotations
             {
                 "type": "code",
                 "prompt": "У Маши 3 яблока, у Пети 4. Напиши после return пример, "
-                          "который посчитает, сколько яблок у них вместе.",
+                "который посчитает, сколько яблок у них вместе.",
                 "starter_code": "def solve():\n    return 0",
                 "reference_solution": "def solve():\n    return 3 + 4",
                 "tests": [{"call": "solve()", "expect": 7}],
@@ -100,9 +115,9 @@ from __future__ import annotations
             "Ошибки бывают у всех, даже у опытных программистов. Python не ругается, "
             "а подсказывает: читай **последнюю строку** сообщения.\n\n"
             "**SyntaxError** — запись сломана: забыта кавычка или скобка. "
-            "Пример: `print(\"привет)`\n"
+            'Пример: `print("привет)`\n'
             "**NameError** — такого имени Python не знает, чаще всего это опечатка. "
-            "Пример: `prnt(\"привет\")`\n\n"
+            'Пример: `prnt("привет")`\n\n'
             "Нашёл строку из сообщения, исправил опечатку — запускай снова."
         ),
         "tasks": [
@@ -126,24 +141,25 @@ from __future__ import annotations
             {
                 "type": "code",
                 "prompt": "В строке забыта закрывающая кавычка. Исправь её, "
-                          "чтобы функция вернула слово Привет.",
+                "чтобы функция вернула слово Привет.",
                 "starter_code": 'def solve():\n    return "Привет',
                 "reference_solution": 'def solve():\n    return "Привет"',
                 "tests": [{"call": "solve()", "expect": "Привет"}],
                 "hint": "Текст должен начинаться и заканчиваться кавычкой.",
-                "explanation": "Без второй кавычки Python не понимает, где кончается текст: это SyntaxError.",
+                "explanation": (
+                    "Без второй кавычки Python не понимает, где кончается текст: это SyntaxError."
+                ),
             },
         ],
     },
-
-    # --- вводный модуль «Python после другого языка» ---
+    # --- intro module "Python after another language" ---
     "Отступы вместо скобок": {
         "title": "Отступы вместо скобок",
         "theory": (
             "В C++, Java и JavaScript блок кода ограничивают фигурные скобки. "
             "В Python их нет — блок задаётся **отступом в 4 пробела** после двоеточия.\n\n"
-            "Java: `if (x > 0) { System.out.println(\"плюс\"); }`\n"
-            "Python: `if x > 0:` и на следующей строке с отступом `print(\"плюс\")`\n\n"
+            'Java: `if (x > 0) { System.out.println("плюс"); }`\n'
+            'Python: `if x > 0:` и на следующей строке с отступом `print("плюс")`\n\n'
             "Скобки вокруг условия не нужны, точка с запятой в конце строки тоже. "
             "Отступ здесь не оформление, а синтаксис: сдвинул строку — поменял логику."
         ),
@@ -154,8 +170,8 @@ from __future__ import annotations
                 "code": 'x = 1\nif x > 3:\n    print("большое")\nprint("конец")',
                 "answer": "конец",
                 "hint": "Какая строка внутри if, а какая — нет?",
-                "explanation": "print(\"большое\") с отступом и выполняется только при x > 3. "
-                               "print(\"конец\") без отступа, он вне if.",
+                "explanation": 'print("большое") с отступом и выполняется только при x > 3. '
+                'print("конец") без отступа, он вне if.',
             },
             {
                 "type": "quiz",
@@ -168,10 +184,12 @@ from __future__ import annotations
             },
             {
                 "type": "code",
-                "prompt": 'Перепиши на Python: if (n > 0) { return "плюс"; } else { return "не плюс"; }',
+                "prompt": (
+                    'Перепиши на Python: if (n > 0) { return "плюс"; } else { return "не плюс"; }'
+                ),
                 "starter_code": "def solve(n):\n    # твой if/else здесь\n    pass",
                 "reference_solution": 'def solve(n):\n    if n > 0:\n        return "плюс"\n'
-                                      '    else:\n        return "не плюс"',
+                '    else:\n        return "не плюс"',
                 "tests": [
                     {"call": "solve(5)", "expect": "плюс"},
                     {"call": "solve(0)", "expect": "не плюс"},
@@ -189,7 +207,7 @@ from __future__ import annotations
             "присваивании, а тип определяется значением.\n\n"
             "C#: `int count = 3;` — Python: `count = 3`\n\n"
             "Текст со значениями собирают **f-строкой** вместо конкатенации и printf: "
-            "`f\"Привет, {name}\"`. Выражение в фигурных скобках подставится в строку."
+            '`f"Привет, {name}"`. Выражение в фигурных скобках подставится в строку.'
         ),
         "tasks": [
             {
@@ -220,7 +238,7 @@ from __future__ import annotations
                     {"call": 'solve("")', "expect": "Привет, !"},
                 ],
                 "hint": "Перед кавычкой поставь f, имя — в фигурных скобках.",
-                "explanation": "f\"Привет, {name}!\" подставляет аргумент в строку.",
+                "explanation": 'f"Привет, {name}!" подставляет аргумент в строку.',
             },
         ],
     },
@@ -253,9 +271,12 @@ from __future__ import annotations
             {
                 "type": "code",
                 "prompt": "Верни сумму чисел списка. Перебирай список напрямую, без индексов.",
-                "starter_code": "def solve(numbers):\n    total = 0\n    # for ... in numbers:\n    return total",
+                "starter_code": (
+                    "def solve(numbers):\n    total = 0\n"
+                    "    # for ... in numbers:\n    return total"
+                ),
                 "reference_solution": "def solve(numbers):\n    total = 0\n    for n in numbers:\n"
-                                      "        total += n\n    return total",
+                "        total += n\n    return total",
                 "tests": [
                     {"call": "solve([1, 2, 3])", "expect": 6},
                     {"call": "solve([])", "expect": 0},
@@ -266,8 +287,7 @@ from __future__ import annotations
             },
         ],
     },
-
-    # --- первые уроки уровней ---
+    # --- first lessons of each level ---
     "Числа и арифметика": {
         "title": "Числа и арифметика",
         "theory": (
@@ -298,7 +318,7 @@ from __future__ import annotations
             {
                 "type": "code",
                 "prompt": "В коробку помещается 6 яиц. Верни, сколько полных коробок "
-                          "получится из n яиц.",
+                "получится из n яиц.",
                 "starter_code": "def solve(n):\n    return 0",
                 "reference_solution": "def solve(n):\n    return n // 6",
                 "tests": [
@@ -335,13 +355,15 @@ from __future__ import annotations
                 "options": ["['a', 'c']", "['b']", "'ac'", "['a', 'b', 'c']"],
                 "answer": "['a', 'c']",
                 "hint": "Условие отбрасывает одну букву, результат — список.",
-                "explanation": "Остаются символы, не равные \"b\", и складываются в список.",
+                "explanation": 'Остаются символы, не равные "b", и складываются в список.',
             },
             {
                 "type": "code",
                 "prompt": "Верни список квадратов только чётных чисел — одним генератором списка.",
                 "starter_code": "def solve(numbers):\n    return []",
-                "reference_solution": "def solve(numbers):\n    return [n * n for n in numbers if n % 2 == 0]",
+                "reference_solution": (
+                    "def solve(numbers):\n    return [n * n for n in numbers if n % 2 == 0]"
+                ),
                 "tests": [
                     {"call": "solve([1, 2, 3, 4])", "expect": [4, 16]},
                     {"call": "solve([])", "expect": []},
@@ -380,7 +402,9 @@ from __future__ import annotations
             },
             {
                 "type": "code",
-                "prompt": "Верни True, если a и b — один и тот же объект, а не просто равные значения.",
+                "prompt": (
+                    "Верни True, если a и b — один и тот же объект, а не просто равные значения."
+                ),
                 "starter_code": "def solve(a, b):\n    return False",
                 "reference_solution": "def solve(a, b):\n    return a is b",
                 "tests": [
@@ -394,4 +418,3 @@ from __future__ import annotations
         ],
     },
 }
-

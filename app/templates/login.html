@@ -1,22 +1,22 @@
 {% extends "base.html" %}
-{% block заголовок %}Вход — CodeHogwarts{% endblock %}
-{% block содержимое %}
-<div class="обёртка узкая" style="padding:44px 0">
-  <div class="карта">
+{% block title %}Вход — CodeHogwarts{% endblock %}
+{% block content %}
+<div class="container narrow" style="padding:44px 0">
+  <div class="card">
     <h2 style="margin-top:0">С возвращением</h2>
     {% if next and next.endswith('/admin') %}
-      <div class="инфо-блок" style="margin-bottom:12px">Панель доступна только администратору. Войди под логином администратора.</div>
+      <div class="alert-info" style="margin-bottom:12px">Панель доступна только администратору. Войди под логином администратора.</div>
     {% endif %}
-    {% if ошибка %}<div class="ошибка">{{ ошибка }}</div>{% endif %}
-    <form method="post" action="{{ база }}/login">
+    {% if error %}<div class="alert-error" style="margin-bottom:12px">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ base_path }}/login">
       <input type="hidden" name="next" value="{{ next }}">
       <label for="email">Почта или логин</label>
       <input id="email" name="email" type="text" required autocomplete="username">
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" required autocomplete="current-password">
-      <button class="кнопка большая" type="submit" style="width:100%">Войти</button>
+      <button class="btn large" type="submit" style="width:100%">Войти</button>
     </form>
-    <p class="тише центр" style="margin-bottom:0">Ещё нет аккаунта? <a href="{{ база }}/test">Пройти тест</a></p>
+    <p class="muted center" style="margin-bottom:0">Ещё нет аккаунта? <a href="{{ base_path }}/test">Пройти тест</a></p>
   </div>
 </div>
 {% endblock %}

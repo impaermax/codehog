@@ -1,70 +1,70 @@
 <!doctype html>
-<html lang="{{ язык }}">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101619">
-  <title>{% block заголовок %}CodeHogwarts — Python в игре{% endblock %}</title>
+  <title>{% block title %}CodeHogwarts — Python в игре{% endblock %}</title>
   <meta name="description" content="Тренажёр Python: короткие уроки под твой уровень, монеты и коллекция ежей.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="{{ база }}/static/css/style.css">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ база }}/static/img/logo/favicon.png">
-  <link rel="icon" type="image/webp" sizes="64x64" href="{{ база }}/static/img/logo/logo-64.webp">
-  <link rel="apple-touch-icon" href="{{ база }}/static/img/logo/apple-touch-icon.png">
+  <link rel="stylesheet" href="{{ base_path }}/static/css/style.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ base_path }}/static/img/logo/favicon.png">
+  <link rel="icon" type="image/webp" sizes="64x64" href="{{ base_path }}/static/img/logo/logo-64.webp">
+  <link rel="apple-touch-icon" href="{{ base_path }}/static/img/logo/apple-touch-icon.png">
 </head>
 <body>
-{% macro языки_блок() %}
-  <span class="языки">
-    {% for код, подпись in языки.items() %}
-      <a href="{{ база }}/lang/{{ код }}" class="{{ 'выбран' if код == язык }}"
-         title="{{ 'Нохчийн мотт' if код == 'ce' else подпись }}">{{ подпись }}</a>
+{% macro language_switch() %}
+  <span class="languages">
+    {% for code, label in languages.items() %}
+      <a href="{{ base_path }}/lang/{{ code }}" class="{{ 'selected' if code == lang }}"
+         title="{{ 'Нохчийн мотт' if code == 'ce' else label }}">{{ label }}</a>
     {% endfor %}
   </span>
 {% endmacro %}
-<div class="обёртка">
-  <header class="шапка">
-    <a class="логотип" href="{{ база }}{{ '/app' if user else '/' }}">
-      <img src="{{ база }}/static/img/logo/logo-64.webp" alt="" width="34" height="34">
+<div class="container">
+  <header class="site-header">
+    <a class="logo" href="{{ base_path }}{{ '/app' if user else '/' }}">
+      <img src="{{ base_path }}/static/img/logo/logo-64.webp" alt="" width="34" height="34">
       Code<span>Hogwarts</span>
     </a>
     {% if user %}
-      <nav class="метрики">
-        {{ языки_блок() }}
-        <span class="метрика монеты" title="Монеты">🪙 <b id="баланс">{{ user.показать_баланс }}</b></span>
-        <span class="метрика огонь" title="Серия дней подряд">🔥 {{ user.streak_current }}</span>
-        <span class="метрика" title="Опыт">⭐ {{ user.xp }}</span>
-        <a class="метрика" href="{{ база }}/profile">{{ т.get('шапка.профиль', 'Профиль') }}</a>
-        <a class="метрика" href="{{ база }}/shop">{{ т['шапка.магазин'] }}</a>
-        {% if user.is_admin %}<a class="метрика" href="{{ база }}/admin">{{ т['шапка.панель'] }}</a>{% endif %}
-        <a class="метрика" href="{{ база }}/logout">{{ т['шапка.выйти'] }}</a>
+      <nav class="metrics">
+        {{ language_switch() }}
+        <span class="metric coins" title="Монеты">🪙 <b id="balance">{{ user.balance_display }}</b></span>
+        <span class="metric streak" title="Серия дней подряд">🔥 {{ user.streak_current }}</span>
+        <span class="metric" title="Опыт">⭐ {{ user.xp }}</span>
+        <a class="metric" href="{{ base_path }}/profile">{{ t['header.profile'] }}</a>
+        <a class="metric" href="{{ base_path }}/shop">{{ t['header.shop'] }}</a>
+        {% if user.is_admin %}<a class="metric" href="{{ base_path }}/admin">{{ t['header.admin'] }}</a>{% endif %}
+        <a class="metric" href="{{ base_path }}/logout">{{ t['header.logout'] }}</a>
       </nav>
     {% else %}
-      <nav class="метрики">
-        {{ языки_блок() }}
-        <a class="метрика" href="{{ база }}/login">{{ т['шапка.войти'] }}</a>
+      <nav class="metrics">
+        {{ language_switch() }}
+        <a class="metric" href="{{ base_path }}/login">{{ t['header.login'] }}</a>
       </nav>
     {% endif %}
   </header>
 
-  {% if бонусы %}
-    <div class="успех" style="margin:16px 0">
-      {% for б in бонусы %}
-        🎁 Начислен бонус <b>+{{ б.amount }} 🪙</b>{% if б.comment %} — {{ б.comment }}{% endif %}<br>
+  {% if bonuses %}
+    <div class="alert-success" style="margin:16px 0">
+      {% for bonus in bonuses %}
+        🎁 Начислен бонус <b>+{{ bonus.amount }} 🪙</b>{% if bonus.comment %} — {{ bonus.comment }}{% endif %}<br>
       {% endfor %}
     </div>
   {% endif %}
 
-  {% block содержимое %}{% endblock %}
+  {% block content %}{% endblock %}
 
-  <footer class="центр">
+  <footer class="center">
     CodeHogwarts · тренажёр Python · 14+<br>
-    <a href="{{ база }}/terms">Пользовательское соглашение</a>
-    <a href="{{ база }}/privacy">Политика конфиденциальности</a>
+    <a href="{{ base_path }}/terms">Пользовательское соглашение</a>
+    <a href="{{ base_path }}/privacy">Политика конфиденциальности</a>
   </footer>
 </div>
-<script>window.БАЗА = "{{ база }}";</script>
-<script src="{{ база }}/static/js/errors.js"></script>
-{% block скрипты %}{% endblock %}
+<script>window.BASE_PATH = "{{ base_path }}";</script>
+<script src="{{ base_path }}/static/js/errors.js"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

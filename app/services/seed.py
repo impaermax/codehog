@@ -1,23 +1,24 @@
-"""Начальное наполнение магазина: скины ежа.
+"""Initial shop catalog: hedgehog skins.
 
-Магазин продаёт не одежду, а скины — готовые образы ежа. Скины разбиты на
-шесть уровней по девять штук. Уровень 1 доступен сразу: из него при
-регистрации выбирается стартовый ёж. Уровни 2–6 открываются по одному
-после прохождения каждого модуля курса.
+The shop sells skins, ready-made looks of the hedgehog, rather than clothing.
+Skins are split into six tiers of nine. Tier 1 is available right away and
+the starter hedgehog is picked from it at sign-up. Tiers 2–6 unlock one by
+one as the learner completes course modules.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Item, Слот
+from app.models import Item, Slot
 
-# Цена скина на каждом уровне. Первый скин уровня 1 выдаётся бесплатно.
-ЦЕНА_УРОВНЯ = {1: 40, 2: 100, 3: 200, 4: 350, 5: 550, 6: 800}
+# Skin price for each tier. The first tier-1 skin is free.
+TIER_PRICES = {1: 40, 2: 100, 3: 200, 4: 350, 5: 550, 6: 800}
 
-# Уровень → девять скинов (название, описание). Порядок — как на листах
-# дизайна: слева направо, сверху вниз. Картинка: static/img/skins/<уровень>-<номер>.webp
-СКИНЫ: dict[int, list[tuple[str, str]]] = {
+# Tier -> nine skins as (name, description), in the order of the design sheets:
+# left to right, top to bottom. Image: static/img/skins/{tier}-{number}.webp
+SKINS: dict[int, list[tuple[str, str]]] = {
     1: [
         ("Синий кодер", "Синие иглы, серебристый ноутбук и кружка"),
         ("Огненный геймер", "Огненные иглы и красная игровая мышка"),
@@ -86,29 +87,45 @@ from app.models import Item, Слот
     ],
 }
 
-# Прежний каталог одежды. Больше не продаётся: дорисовывать гардероб под каждый
-# скин слишком дорого. Записи не удаляются, чтобы не потерять уже сделанные покупки.
-СТАРЫЕ_SKU = (
-    "cap_neon", "glasses_debug", "hoodie_python", "backpack_dev", "skin_neon",
-    "skin_chrome", "vehicle_hogmobile", "home_capsule", "home_loft",
+# The retired clothing catalog. No longer sold: drawing clothes for every skin
+# would cost too much. Rows are kept so that past purchases are not lost.
+OLD_SKUS = (
+    "cap_neon",
+    "glasses_debug",
+    "hoodie_python",
+    "backpack_dev",
+    "skin_neon",
+    "skin_chrome",
+    "vehicle_hogmobile",
+    "home_capsule",
+    "home_loft",
 )
 
 
-def засеять_каталог(сессия: Session) -> int:
-    """Добавляет недостающие скины и выключает старую одежду. Повторный вызов безопасен."""
-    добавлено = 0
-    for уровень, скины in СКИНЫ.items():
-        for номер, (имя, описание) in enumerate(скины, start=1):
-            sku = f"hog-{уровень}-{номер}"
-            if сессия.scalar(select(Item).where(Item.sku == sku)):
+def seed_catalog(session: Session) -> int:
+    """Add missing skins and retire old clothing. Safe to call repeatedly."""
+    added = 0
+    for tier, skins in SKINS.items():
+        for number, (name, description) in enumerate(skins, start=1):
+            sku = f"hog-{tier}-{number}"
+            if session.scalar(select(Item).where(Item.sku == sku)):
                 continue
-            сессия.add(Item(
-                sku=sku, name=имя, description=описание, slot=Слот.СКИН,
-                price=ЦЕНА_УРОВНЯ[уровень], asset_key=f"{уровень}-{номер}",
-                sort_order=уровень * 100 + номер, tier=уровень,
-            ))
-            добавлено += 1
-    for старый in сессия.scalars(select(Item).where(Item.sku.in_(СТАРЫЕ_SKU), Item.is_active.is_(True))):
-        старый.is_active = False
-    сессия.commit()
-    return добавлено
+            session.add(
+                Item(
+                    sku=sku,
+                    name=name,
+                    description=description,
+                    slot=Slot.SKIN,
+                    price=TIER_PRICES[tier],
+                    asset_key=f"{tier}-{number}",
+                    sort_order=tier * 100 + number,
+                    tier=tier,
+                )
+            )
+            added += 1
+    for old_item in session.scalars(
+        select(Item).where(Item.sku.in_(OLD_SKUS), Item.is_active.is_(True))
+    ):
+        old_item.is_active = False
+    session.commit()
+    return added

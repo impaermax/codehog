@@ -1,51 +1,51 @@
 {% extends "base.html" %}
-{% block заголовок %}Тест на уровень — CodeHogwarts{% endblock %}
-{% block содержимое %}
-<div class="обёртка узкая" style="padding:40px 0">
-  {# Вопрос перед тестом: кто никогда не программировал, тест не проходит,
-     а сразу получает курс с нулевого модуля #}
-  <div id="опыт">
-    <div class="карта">
+{% block title %}Тест на уровень — CodeHogwarts{% endblock %}
+{% block content %}
+<div class="container narrow" style="padding:40px 0">
+  {# The question before the test: those who have never programmed skip
+     the test and get a course that starts from the intro module #}
+  <div id="experience">
+    <div class="card">
       <h2 style="margin-top:0">Ты уже программировал?</h2>
-      <p class="тише">От ответа зависит, с чего начнётся твой курс.</p>
-      <div class="варианты">
-        <button class="вариант" data-опыт="none">Никогда — хочу начать с самого начала</button>
-        <button class="вариант" data-опыт="other">Да, но на другом языке</button>
-        <button class="вариант" data-опыт="python">Да, уже пишу на Python</button>
+      <p class="muted">От ответа зависит, с чего начнётся твой курс.</p>
+      <div class="options">
+        <button class="option" data-experience="none">Никогда — хочу начать с самого начала</button>
+        <button class="option" data-experience="other">Да, но на другом языке</button>
+        <button class="option" data-experience="python">Да, уже пишу на Python</button>
       </div>
     </div>
   </div>
 
-  <div id="ход" style="display:none">
-    <div class="тише" id="счётчик">Вопрос 1</div>
-    <div class="полоса"><i id="полоса" style="width:0%"></i></div>
-    <div class="карта">
-      <h2 id="текст" style="margin-top:0"></h2>
-      <pre class="вопрос-код" id="код"></pre>
-      <div class="варианты" id="варианты"></div>
+  <div id="test-flow" style="display:none">
+    <div class="muted" id="question-counter">Вопрос 1</div>
+    <div class="progress"><i id="progress-bar" style="width:0%"></i></div>
+    <div class="card">
+      <h2 id="question-text" style="margin-top:0"></h2>
+      <pre class="code-block" id="question-code"></pre>
+      <div class="options" id="question-options"></div>
       <div style="margin-top:20px; display:flex; gap:10px; align-items:center">
-        <button class="кнопка" id="дальше" disabled>Ответить</button>
-        <button class="кнопка тихая" id="незнаю">Не знаю</button>
+        <button class="btn" id="answer-btn" disabled>Ответить</button>
+        <button class="btn ghost" id="skip-btn">Не знаю</button>
       </div>
     </div>
   </div>
 
-  <div id="итог" style="display:none">
-    <div class="карта центр">
-      <img src="{{ база }}/static/img/logo/logo-128.webp" width="72" height="72" alt="">
-      <h2 style="margin:8px 0">Твой уровень: <span id="уровень" style="color:var(--акцент)"></span></h2>
-      <p class="тише" id="счёт"></p>
-      <div id="пробелы" class="тише" style="margin:14px 0"></div>
-      <a class="кнопка большая" id="кдалее" href="{{ база }}/register">Сохранить результат и начать</a>
+  <div id="test-result" style="display:none">
+    <div class="card center">
+      <img src="{{ base_path }}/static/img/logo/logo-128.webp" width="72" height="72" alt="">
+      <h2 style="margin:8px 0">Твой уровень: <span id="result-level" style="color:var(--accent)"></span></h2>
+      <p class="muted" id="result-score"></p>
+      <div id="result-gaps" class="muted" style="margin:14px 0"></div>
+      <a class="btn large" id="continue-link" href="{{ base_path }}/register">Сохранить результат и начать</a>
     </div>
-    <div class="карта" id="карта-разбора" style="margin-top:16px">
+    <div class="card" id="review-card" style="margin-top:16px">
       <h3 style="margin-top:0">Разбор ответов</h3>
-      <div id="разбор"></div>
+      <div id="review"></div>
     </div>
   </div>
 </div>
 {% endblock %}
-{% block скрипты %}
-<script>window.ВОПРОСЫ = {{ вопросы | tojson }};</script>
-<script src="{{ база }}/static/js/test.js"></script>
+{% block scripts %}
+<script>window.QUESTIONS = {{ questions | tojson }};</script>
+<script src="{{ base_path }}/static/js/test.js"></script>
 {% endblock %}

@@ -1,31 +1,33 @@
-// Покупка и экипировка. После действия перезагружаем страницу — ёж перерисуется на сервере.
+// Buying a skin and making it active. After the action the page reloads,
+// so the server redraws the hedgehog.
 (() => {
-  const БАЗА = window.БАЗА || "";
-  document.querySelectorAll(".товар").forEach((карточка) => {
-    const sku = карточка.dataset.sku;
-    const сообщение = карточка.querySelector(".сообщение");
+  const BASE_PATH = window.BASE_PATH || "";
 
-    const действие = async (адрес, кнопка) => {
-      кнопка.disabled = true;
+  document.querySelectorAll(".product").forEach((card) => {
+    const sku = card.dataset.sku;
+    const message = card.querySelector(".message");
+
+    const run = async (url, button) => {
+      button.disabled = true;
       try {
-        const ответ = await fetch(адрес, { method: "POST" });
-        const д = await ответ.json();
-        if (!ответ.ok) throw ошибкаОтвета(ответ, д);
+        const response = await fetch(url, { method: "POST" });
+        const data = await response.json();
+        if (!response.ok) throw responseError(response, data);
         location.reload();
-      } catch (e) {
-        кнопка.disabled = false;
-        if (ошибкаСвязи(e)) {
-          показатьОшибку(текстОшибки(e), () => действие(адрес, кнопка));
+      } catch (error) {
+        button.disabled = false;
+        if (isNetworkError(error)) {
+          showError(errorText(error), () => run(url, button));
         } else {
-          сообщение.textContent = e.message;   // «не хватает монет» и подобное
+          message.textContent = error.message;  // "not enough coins" and the like
         }
       }
     };
 
-    const купить = карточка.querySelector(".купить");
-    if (купить) купить.onclick = () => действие(`${БАЗА}/hog/shop/buy/${sku}`, купить);
+    const buyButton = card.querySelector(".buy-btn");
+    if (buyButton) buyButton.onclick = () => run(`${BASE_PATH}/hog/shop/buy/${sku}`, buyButton);
 
-    const надеть = карточка.querySelector(".надеть");
-    if (надеть) надеть.onclick = () => действие(`${БАЗА}/hog/shop/equip/${sku}`, надеть);
+    const equipButton = card.querySelector(".equip-btn");
+    if (equipButton) equipButton.onclick = () => run(`${BASE_PATH}/hog/shop/equip/${sku}`, equipButton);
   });
 })();

@@ -1,4 +1,5 @@
-"""Регистрация, вход и текущий пользователь из подписанной cookie."""
+"""Sign-up, login and the current user from a signed cookie."""
+
 from __future__ import annotations
 
 import re
@@ -9,85 +10,87 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import BonusGrant, User, Уровень
+from app.models import BonusGrant, Level, User
 
 COOKIE = "codehog_session"
-_подписчик = URLSafeSerializer(settings.secret_key, salt="codehog-auth")
+_signer = URLSafeSerializer(settings.secret_key, salt="codehog-auth")
 
-ПОЧТА = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
-
-
-class ОшибкаВхода(Exception):
-    """Понятная человеку причина, почему не пустило."""
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
 
 
-class Аутентификация:
-    """Всё, что связано с учётной записью."""
+class AuthError(Exception):
+    """A human-readable reason why sign-up or login failed."""
 
-    def __init__(self, сессия: Session) -> None:
-        self.сессия = сессия
 
-    @staticmethod
-    def хеш(пароль: str) -> str:
-        return bcrypt.hashpw(пароль.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+class Auth:
+    """Everything related to user accounts."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
 
     @staticmethod
-    def сверить(пароль: str, хеш: str) -> bool:
+    def hash_password(password: str) -> str:
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    @staticmethod
+    def verify_password(password: str, password_hash: str) -> bool:
         try:
-            return bcrypt.checkpw(пароль.encode("utf-8"), хеш.encode("utf-8"))
+            return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
         except ValueError:
             return False
 
-    def зарегистрировать(self, email: str, username: str, пароль: str, уровень: Уровень) -> User:
+    def register(self, email: str, username: str, password: str, level: Level) -> User:
         email = (email or "").strip().lower()
         username = (username or "").strip()
 
-        if not ПОЧТА.match(email):
-            raise ОшибкаВхода("Проверьте адрес почты")
+        if not EMAIL_RE.match(email):
+            raise AuthError("Проверьте адрес почты")
         if len(username) < 2:
-            raise ОшибкаВхода("Имя — минимум два символа")
-        if len(пароль) < 6:
-            raise ОшибкаВхода("Пароль — минимум шесть символов")
-        if self.сессия.scalar(select(User).where(User.email == email)):
-            raise ОшибкаВхода("Такая почта уже зарегистрирована — войдите")
-        if self.сессия.scalar(select(User).where(User.username == username)):
-            username = f"{username}{self.сессия.query(User).count() + 1}"
+            raise AuthError("Имя — минимум два символа")
+        if len(password) < 6:
+            raise AuthError("Пароль — минимум шесть символов")
+        if self.session.scalar(select(User).where(User.email == email)):
+            raise AuthError("Такая почта уже зарегистрирована — войдите")
+        if self.session.scalar(select(User).where(User.username == username)):
+            username = f"{username}{self.session.query(User).count() + 1}"
 
-        # Бонусы из админки — подарок тем, кто уже был с нами в момент раздачи.
-        # Без этой отметки новичок при первом входе получал все прошлые подарки.
-        последний_бонус = self.сессия.scalar(select(func.max(BonusGrant.id))) or 0
-        юзер = User(
-            email=email, username=username,
-            password_hash=self.хеш(пароль), level=уровень,
-            last_bonus_id=последний_бонус,
+        # Admin bonuses are a gift to those who were already registered when
+        # they were granted. Without this mark a new user would receive every
+        # past bonus on their first visit.
+        last_bonus = self.session.scalar(select(func.max(BonusGrant.id))) or 0
+        user = User(
+            email=email,
+            username=username,
+            password_hash=self.hash_password(password),
+            level=level,
+            last_bonus_id=last_bonus,
         )
-        self.сессия.add(юзер)
-        self.сессия.commit()
-        return юзер
+        self.session.add(user)
+        self.session.commit()
+        return user
 
-    def войти(self, логин: str, пароль: str) -> User:
-        """Пускаем и по почте, и по имени пользователя: админ входит как maks-admin."""
-        значение = (логин or "").strip()
-        юзер = self.сессия.scalar(select(User).where(User.email == значение.lower()))
-        if юзер is None:
-            юзер = self.сессия.scalar(select(User).where(User.username == значение))
-        if not юзер or not self.сверить(пароль, юзер.password_hash):
-            raise ОшибкаВхода("Неверный логин или пароль")
-        return юзер
-
-    def найти(self, user_id: int) -> User | None:
-        return self.сессия.get(User, user_id)
+    def login(self, identifier: str, password: str) -> User:
+        """Accepts either the email or the username: the admin signs in as maks-admin."""
+        value = (identifier or "").strip()
+        user = self.session.scalar(select(User).where(User.email == value.lower()))
+        if user is None:
+            user = self.session.scalar(select(User).where(User.username == value))
+        if not user or not self.verify_password(password, user.password_hash):
+            raise AuthError("Неверный логин или пароль")
+        return user
 
     @staticmethod
-    def подписать(user_id: int) -> str:
-        return _подписчик.dumps({"uid": user_id})
+    def sign(user_id: int) -> str:
+        """Session cookie value for the user."""
+        return _signer.dumps({"uid": user_id})
 
     @staticmethod
-    def прочитать(значение: str | None) -> int | None:
-        if not значение:
+    def read_session(cookie: str | None) -> int | None:
+        """User id from a session cookie, or None if it is missing or forged."""
+        if not cookie:
             return None
         try:
-            данные = _подписчик.loads(значение)
+            data = _signer.loads(cookie)
         except BadSignature:
             return None
-        return данные.get("uid")
+        return data.get("uid")

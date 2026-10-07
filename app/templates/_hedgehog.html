@@ -1,0 +1,15 @@
+{#
+  The hedgehog on screen is the user's active skin.
+
+  Skins live in static/img/skins/{tier}-{number}.webp. If no skin is active
+  yet (or an item from the retired clothing catalog is), the blue starter
+  hedgehog is shown.
+#}
+{% macro hedgehog(equipped, height=240, caption='') %}
+  {% set skin = equipped.get('skin', '') %}
+  {% set frame = skin if (skin and skin[:1] in '123456' and '-' in skin) else '1-1' %}
+  <div class="hedgehog" style="--height:{{ height }}px">
+    <img src="{{ base_path }}/static/img/skins/{{ frame }}.webp"
+         alt="{{ caption or 'Твой ёж' }}" loading="lazy">
+  </div>
+{% endmacro %}

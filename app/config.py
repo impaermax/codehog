@@ -1,62 +1,71 @@
-"""Настройки приложения. Читаются из .env, но у всего есть разумный дефолт."""
+"""Application settings. Read from .env, with a sensible default for everything."""
+
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-КОРЕНЬ = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 
 
-def _читать_env(путь: Path) -> None:
-    """Простой разбор .env без внешних зависимостей."""
-    if not путь.exists():
+def _read_env(path: Path) -> None:
+    """Minimal .env parser, so no extra dependency is needed."""
+    if not path.exists():
         return
-    for строка in путь.read_text(encoding="utf-8").splitlines():
-        строка = строка.strip()
-        if not строка or строка.startswith("#") or "=" not in строка:
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
             continue
-        ключ, _, значение = строка.partition("=")
-        os.environ.setdefault(ключ.strip(), значение.strip())
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
 
 
-_читать_env(КОРЕНЬ / ".env")
+_read_env(ROOT / ".env")
+
+
+def _base_path() -> str:
+    """Sub-path the app is served from: "" for the domain root, "/codehog" for maks.my/codehog."""
+    raw = os.getenv("BASE_PATH", "").strip("/")
+    return f"/{raw}" if raw else ""
 
 
 @dataclass(frozen=True)
 class Settings:
-    """Конфигурация приложения одним объектом."""
+    """All configuration in one object."""
 
     api_key: str = field(default_factory=lambda: os.getenv("EXPLABS_API_KEY", ""))
     base_url: str = field(
         default_factory=lambda: os.getenv("EXPLABS_BASE_URL", "https://api.experientiallabs.ai/v1")
     )
-    course_model: str = field(default_factory=lambda: os.getenv("COURSE_MODEL", "deepseek-v4-flash"))
+    course_model: str = field(
+        default_factory=lambda: os.getenv("COURSE_MODEL", "deepseek-v4-flash")
+    )
     fallback_model: str = field(
         default_factory=lambda: os.getenv("COURSE_MODEL_FALLBACK", "gpt-5.4-mini")
     )
     admin_password: str = field(
         default_factory=lambda: os.getenv("ADMIN_PASSWORD", "codehog-admin")
     )
-    secret_key: str = field(default_factory=lambda: os.getenv("SECRET_KEY", "dev-secret-change-me"))
-    # Почта для обращений по личным данным. Пусто — строка на странице политики не выводится
+    secret_key: str = field(
+        default_factory=lambda: os.getenv("SECRET_KEY", "dev-secret-change-me")
+    )
+    # Contact address for personal data requests. Empty hides the line on the privacy page.
     contact_email: str = field(default_factory=lambda: os.getenv("CONTACT_EMAIL", ""))
-    # Подкаталог, в котором живёт приложение: "" для корня домена,
-    # "/codehog" — чтобы открывалось по https://maks.my/codehog
-    base_path: str = field(
-        default_factory=lambda: "/" + os.getenv("BASE_PATH", "").strip("/") if os.getenv("BASE_PATH", "").strip("/") else ""
-    )
+    base_path: str = field(default_factory=_base_path)
     database_url: str = field(
-        default_factory=lambda: os.getenv("DATABASE_URL", f"sqlite:///{КОРЕНЬ / 'data' / 'codehog.db'}")
+        default_factory=lambda: os.getenv(
+            "DATABASE_URL", f"sqlite:///{ROOT / 'data' / 'codehog.db'}"
+        )
     )
-    # Ограничения песочницы для проверки кода ученика
+    # Sandbox limits for running learner code
     code_timeout_sec: float = 5.0
     code_memory_mb: int = 128
     code_output_limit: int = 10_000
 
     @property
-    def ai_включён(self) -> bool:
-        """Без ключа приложение работает целиком, просто курс берётся шаблонный."""
+    def ai_enabled(self) -> bool:
+        """Without a key the app still works in full, lessons just come from templates."""
         return bool(self.api_key)
 
 

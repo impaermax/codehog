@@ -1,55 +1,55 @@
 {% extends "base.html" %}
-{% from "_персонаж.html" import персонаж %}
-{% block заголовок %}Магазин — CodeHogwarts{% endblock %}
-{% block содержимое %}
-<section class="сетка две" style="padding:30px 0; align-items:start">
-  <div class="карта центр">
-    {{ персонаж(надето, 220) }}
-    <p class="тише">Твой ёж сейчас</p>
+{% from "_hedgehog.html" import hedgehog %}
+{% block title %}Магазин — CodeHogwarts{% endblock %}
+{% block content %}
+<section class="grid two" style="padding:30px 0; align-items:start">
+  <div class="card center">
+    {{ hedgehog(equipped, 220) }}
+    <p class="muted">Твой ёж сейчас</p>
   </div>
-  <div class="карта">
-    <h2 style="margin-top:0">Баланс: <span style="color:var(--золото)">{{ user.показать_баланс }} 🪙</span></h2>
-    {% if старт_бесплатно %}
-      <div class="успех" style="margin-bottom:12px">Выбери стартового ежа — первый из уровня 1 бесплатно.</div>
+  <div class="card">
+    <h2 style="margin-top:0">Баланс: <span style="color:var(--gold)">{{ user.balance_display }} 🪙</span></h2>
+    {% if free_starter %}
+      <div class="alert-success" style="margin-bottom:12px">Выбери стартового ежа — первый из уровня 1 бесплатно.</div>
     {% endif %}
-    <p class="тише">Монеты приходят за уроки, серии дней и колесо. Каждый пройденный
+    <p class="muted">Монеты приходят за уроки, серии дней и колесо. Каждый пройденный
       модуль курса открывает новый уровень скинов. Скины меняют только внешний вид,
       преимуществ в обучении не дают.</p>
   </div>
 </section>
 
-{% for уровень, скины in уровни %}
-  {% set открыт = уровень <= открыто %}
-  <section class="уровень-скинов {{ '' if открыт else 'закрыт' }}">
-    <div class="уровень-шапка">
-      <h2>Уровень {{ уровень }}</h2>
-      {% if открыт %}
-        <span class="бейдж">открыт</span>
+{% for tier, skins in tiers %}
+  {% set is_open = tier <= unlocked_tier %}
+  <section class="skin-tier {{ '' if is_open else 'locked' }}">
+    <div class="skin-tier-header">
+      <h2>Уровень {{ tier }}</h2>
+      {% if is_open %}
+        <span class="badge">открыт</span>
       {% else %}
-        <span class="бейдж">🔒 откроется после модуля {{ уровень - 1 }}</span>
+        <span class="badge">🔒 откроется после модуля {{ tier - 1 }}</span>
       {% endif %}
     </div>
-    <div class="скины">
-      {% for скин in скины %}
-        {% set моё = мои.get(скин.id) %}
-        {% set цена = 0 if (старт_бесплатно and уровень == 1) else скин.price %}
-        <div class="карта товар скин-карта {{ 'куплено' if моё }} {{ 'надет' if моё and моё.is_equipped }}"
-             data-sku="{{ скин.sku }}">
-          <img src="{{ база }}/static/img/skins/{{ скин.asset_key }}.webp" alt="{{ скин.name }}" loading="lazy">
-          <h3>{{ скин.name }}</h3>
-          <p class="тише">{{ скин.description }}</p>
-          {% if моё and моё.is_equipped %}
-            <button class="кнопка тихая" disabled>Активный</button>
-          {% elif моё %}
-            <button class="кнопка тихая надеть">Сделать активным</button>
-          {% elif not открыт %}
-            <button class="кнопка" disabled>🔒 {{ скин.price }} 🪙</button>
-          {% elif not user.is_admin and user.coins < цена %}
-            <button class="кнопка" disabled>Не хватает {{ цена - user.coins }} 🪙</button>
+    <div class="skins">
+      {% for skin in skins %}
+        {% set mine = owned.get(skin.id) %}
+        {% set price = 0 if (free_starter and tier == 1) else skin.price %}
+        <div class="card product skin-card {{ 'owned' if mine }} {{ 'active' if mine and mine.is_equipped }}"
+             data-sku="{{ skin.sku }}">
+          <img src="{{ base_path }}/static/img/skins/{{ skin.asset_key }}.webp" alt="{{ skin.name }}" loading="lazy">
+          <h3>{{ skin.name }}</h3>
+          <p class="muted">{{ skin.description }}</p>
+          {% if mine and mine.is_equipped %}
+            <button class="btn ghost" disabled>Активный</button>
+          {% elif mine %}
+            <button class="btn ghost equip-btn">Сделать активным</button>
+          {% elif not is_open %}
+            <button class="btn" disabled>🔒 {{ skin.price }} 🪙</button>
+          {% elif not user.is_admin and user.coins < price %}
+            <button class="btn" disabled>Не хватает {{ price - user.coins }} 🪙</button>
           {% else %}
-            <button class="кнопка купить">{{ 'Выбрать бесплатно' if цена == 0 else 'Купить за ' ~ цена ~ ' 🪙' }}</button>
+            <button class="btn buy-btn">{{ 'Выбрать бесплатно' if price == 0 else 'Купить за ' ~ price ~ ' 🪙' }}</button>
           {% endif %}
-          <div class="тише сообщение"></div>
+          <div class="muted message"></div>
         </div>
       {% endfor %}
     </div>
@@ -57,4 +57,4 @@
 {% endfor %}
 <div style="height:40px"></div>
 {% endblock %}
-{% block скрипты %}<script src="{{ база }}/static/js/shop.js"></script>{% endblock %}
+{% block scripts %}<script src="{{ base_path }}/static/js/shop.js"></script>{% endblock %}

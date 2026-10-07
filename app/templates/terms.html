@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block заголовок %}Пользовательское соглашение — CodeHogwarts{% endblock %}
-{% block содержимое %}
-<article class="обёртка узкая документ">
+{% block title %}Пользовательское соглашение — CodeHogwarts{% endblock %}
+{% block content %}
+<article class="container narrow document">
   <h1>Пользовательское соглашение</h1>
-  <p class="тише">Действует с 6 октября 2026 года</p>
+  <p class="muted">Действует с 6 октября 2026 года</p>
 
   <h2>Что это за сервис</h2>
   <p>CodeHogwarts — учебный тренажёр по программированию на Python. Его делает команда
@@ -41,6 +41,6 @@
 
   <h2>Личные данные</h2>
   <p>Какие данные мы собираем и зачем, описано в
-  <a href="{{ база }}/privacy">Политике конфиденциальности</a>.</p>
+  <a href="{{ base_path }}/privacy">Политике конфиденциальности</a>.</p>
 </article>
 {% endblock %}

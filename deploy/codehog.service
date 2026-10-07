@@ -9,7 +9,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/opt/codehog
 EnvironmentFile=/opt/codehog/.env
-ExecStart=/opt/codehog/.venv/bin/uvicorn app.main:приложение --host 127.0.0.1 --port 8791 --workers 2
+ExecStart=/opt/codehog/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8791 --workers 2
 Restart=always
 RestartSec=3
 

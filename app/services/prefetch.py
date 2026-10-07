@@ -1,11 +1,11 @@
-"""Фоновая подготовка уроков.
+"""Background lesson preparation.
 
-Генерация урока моделью занимает 15–25 секунд. Держать человека на загрузке
-столько нельзя, поэтому:
-  · первый урок наполняется шаблоном сразу — старт мгновенный;
-  · следующие готовятся в фоне, пока человек занимается текущим.
-Так ожидания не видно вообще, а качество модели подхватывается со второго урока.
+Generating a lesson with the model takes 15–25 seconds, which is too long
+to keep a learner waiting. So:
+  * the first lesson is filled instantly from a ready-made lesson;
+  * the next ones are prepared in the background while the current one is studied.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,60 +14,62 @@ import threading
 from sqlalchemy import select
 
 from app.database import SessionLocal
-from app.models import Course, Lesson, TestAttempt, User
+from app.models import Course, TestAttempt, User
 
-лог = logging.getLogger("codehog.prefetch")
+logger = logging.getLogger("codehog.prefetch")
 
-БУФЕР = 3          # сколько уроков держать наготове
-_занятые: set[int] = set()
-_замок = threading.Lock()
+BUFFER = 3  # how many lessons to keep ready ahead
+_busy: set[int] = set()
+_lock = threading.Lock()
 
 
-def _подготовить(user_id: int, сколько: int) -> None:
-    from app.services.course import ГенераторКурса
-    from app.services.testbank import АдаптивныйТест
+def _prepare(user_id: int, count: int) -> None:
+    from app.services.course import CourseGenerator
+    from app.services.testbank import AdaptiveTest
 
-    сессия = SessionLocal()
+    session = SessionLocal()
     try:
-        юзер = сессия.get(User, user_id)
-        if юзер is None:
+        user = session.get(User, user_id)
+        if user is None:
             return
-        курс = сессия.scalar(
+        course = session.scalar(
             select(Course).where(Course.user_id == user_id).order_by(Course.id.desc())
         )
-        if курс is None:
+        if course is None:
             return
 
-        попытка = сессия.scalar(
-            select(TestAttempt).where(TestAttempt.user_id == user_id).order_by(TestAttempt.id.desc())
+        attempt = session.scalar(
+            select(TestAttempt)
+            .where(TestAttempt.user_id == user_id)
+            .order_by(TestAttempt.id.desc())
         )
-        слабые = АдаптивныйТест.слабые_темы(попытка.ответы) if попытка else []
+        weak_topics = AdaptiveTest.weak_topics(attempt.answers) if attempt else []
 
-        генератор = ГенераторКурса(сессия)
-        сделано = 0
-        for урок in курс.все_уроки:
-            if сделано >= сколько:
+        generator = CourseGenerator(session)
+        done = 0
+        for lesson in course.all_lessons:
+            if done >= count:
                 break
-            if урок.tasks:
+            if lesson.tasks:
                 continue
-            генератор.наполнить_урок(урок, юзер, слабые)
-            сделано += 1
-        if сделано:
-            лог.info("фоном подготовлено уроков: %s (пользователь %s)", сделано, user_id)
-    except Exception as e:  # фон не имеет права ронять приложение
-        лог.warning("фоновая подготовка не удалась: %s", str(e)[:200])
+            generator.fill_lesson(lesson, user, weak_topics)
+            done += 1
+        if done:
+            logger.info("prepared %s lessons in the background (user %s)", done, user_id)
+    except Exception as e:  # a background job must never take the app down
+        logger.warning("background preparation failed: %s", str(e)[:200])
     finally:
-        сессия.close()
-        with _замок:
-            _занятые.discard(user_id)
+        session.close()
+        with _lock:
+            _busy.discard(user_id)
 
 
-def запустить(user_id: int, сколько: int = БУФЕР) -> bool:
-    """Ставит подготовку в фон. Повторный вызов для того же человека игнорируется."""
-    with _замок:
-        if user_id in _занятые:
+def prefetch_lessons(user_id: int, count: int = BUFFER) -> bool:
+    """Queue preparation in the background. A repeated call for the same user is ignored."""
+    with _lock:
+        if user_id in _busy:
             return False
-        _занятые.add(user_id)
-    поток = threading.Thread(target=_подготовить, args=(user_id, сколько), daemon=True)
-    поток.start()
+        _busy.add(user_id)
+    thread = threading.Thread(target=_prepare, args=(user_id, count), daemon=True)
+    thread.start()
     return True

@@ -1,78 +1,101 @@
-"""Общие зависимости запросов (Depends) и единый шаблонизатор."""
+"""Shared request dependencies (Depends) and the single template engine."""
+
 from __future__ import annotations
+
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import получить_сессию
+from app.database import get_session
 from app.models import User
-from app.services.auth import COOKIE, Аутентификация
-from app.services.text import разметка
+from app.services.auth import COOKIE, Auth
+from app.services.text import markup
+
+# Dependency aliases: FastAPI resolves them from the type annotation (Annotated style).
+SessionDep = Annotated[Session, Depends(get_session)]
+
+GUEST_COOKIE = "codehog_guest"
+LANG_COOKIE = "lang"
 
 
-def текущий_пользователь(
-    request: Request, сессия: Session = Depends(получить_сессию)
-) -> User | None:
-    """Пользователь из подписанной cookie. None — значит гость."""
-    uid = Аутентификация.прочитать(request.cookies.get(COOKIE))
-    if uid is None:
+def current_user(request: Request, session: SessionDep) -> User | None:
+    """The user from the signed cookie. None means a guest."""
+    user_id = Auth.read_session(request.cookies.get(COOKIE))
+    if user_id is None:
         return None
-    return сессия.get(User, uid)
+    return session.get(User, user_id)
 
 
-def нужен_пользователь(юзер: User | None = Depends(текущий_пользователь)) -> User:
-    """То же, но для JSON-ручек, куда гостю нельзя: без входа — 401.
+CurrentUser = Annotated[User | None, Depends(current_user)]
 
-    Проверка входа живёт в зависимости, а не копируется в каждую ручку.
+
+def require_user(user: CurrentUser) -> User:
+    """Same as current_user, for JSON endpoints closed to guests: 401 without login.
+
+    The login check lives in a dependency instead of being copied into every endpoint.
     """
-    if юзер is None:
+    if user is None:
         raise HTTPException(status_code=401, detail="Нужно войти")
-    return юзер
+    return user
 
-# Единственный экземпляр шаблонизатора на всё приложение.
+
+def guest_token(request: Request) -> str:
+    """Anonymous session id, used to link the test taken before sign-up."""
+    return request.cookies.get(GUEST_COOKIE, "")
+
+
+RequiredUser = Annotated[User, Depends(require_user)]
+GuestToken = Annotated[str, Depends(guest_token)]
+
+
+# The only template engine in the app.
 #
-# Раньше их было два — свой в pages.py и свой в admin.py, — и настройки,
-# добавленные в один, не доезжали до другого. Из-за этого админка рисовала
-# ссылки без префикса подкаталога и уводила на чужой сайт. Держим один,
-# чтобы такая рассинхронизация была невозможна в принципе.
-шаблоны = Jinja2Templates(directory="app/templates")
-шаблоны.env.filters["разметка"] = разметка
-шаблоны.env.globals["база"] = settings.base_path
-шаблоны.env.globals["почта_для_обращений"] = settings.contact_email
+# There used to be two, one in pages.py and one in admin.py, and settings added
+# to one never reached the other. As a result the admin panel rendered links
+# without the sub-path prefix and sent people to another site. Keeping a single
+# instance makes that kind of drift impossible.
+templates = Jinja2Templates(directory="app/templates")
+templates.env.filters["markup"] = markup
+templates.env.globals["base_path"] = settings.base_path
+templates.env.globals["contact_email"] = settings.contact_email
 
 
-def контекст_шаблона(request: Request, юзер, сессия, **прочее) -> dict:
-    """Данные, нужные каждому шаблону: пользователь, язык, бонусы, экипировка.
+def template_context(request: Request, user: User | None, session: Session, **extra) -> dict:
+    """Data every template needs: user, language, pending bonuses, active hedgehog.
 
-    Живёт здесь, а не в pages.py, чтобы админка не забывала часть ключей —
-    именно на этом панель однажды упала с UndefinedError.
+    It lives here rather than in pages.py so the admin panel cannot miss some
+    of the keys; that is exactly how the panel once failed with an UndefinedError.
     """
-    from app.services.admin import Админка
-    from app.services.economy import Экономика
-    from app.services.i18n import ЯЗЫКИ, выбрать, перевод
+    from app.services.admin import AdminService
+    from app.services.economy import Economy
+    from app.services.i18n import LANGUAGES, get_translations, pick_language
 
-    язык = выбрать(request.cookies.get("lang"))
-    основа = {
-        "request": request, "user": юзер, "вращений": 0, "надето": {}, "бонусы": [],
-        "т": перевод(язык), "язык": язык, "языки": ЯЗЫКИ,
+    lang = pick_language(request.cookies.get(LANG_COOKIE))
+    context = {
+        "request": request,
+        "user": user,
+        "spins": 0,
+        "equipped": {},
+        "bonuses": [],
+        "t": get_translations(lang),
+        "lang": lang,
+        "languages": LANGUAGES,
     }
-    if юзер is not None:
-        основа["бонусы"] = [
-            {"amount": б.amount, "comment": б.comment}
-            for б in Админка(сессия).выдать_ожидающие(юзер)
+    if user is not None:
+        context["bonuses"] = [
+            {"amount": grant.amount, "comment": grant.comment}
+            for grant in AdminService(session).grant_pending(user)
         ]
-        экономика = Экономика(сессия)
-        экономика.проверить_стрик(юзер)
-        основа["вращений"] = экономика.доступно_вращений(юзер)
-        основа["надето"] = {
-            п.item.slot.value: п.item.asset_key for п in юзер.items if п.is_equipped
+        economy = Economy(session)
+        economy.check_streak(user)
+        context["spins"] = economy.available_spins(user)
+        context["equipped"] = {
+            owned.item.slot.value: owned.item.asset_key
+            for owned in user.items
+            if owned.is_equipped
         }
-    основа.update(прочее)
-    return основа
-
-
-def токен_гостя(request: Request) -> str:
-    """Идентификатор анонимной сессии — чтобы связать тест до регистрации."""
-    return request.cookies.get("codehog_guest", "")
+    context.update(extra)
+    return context
