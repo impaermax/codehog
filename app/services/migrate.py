@@ -16,6 +16,7 @@ from sqlalchemy.engine import Engine
 НУЖНЫЕ = [
     ("users", "is_admin", "BOOLEAN NOT NULL DEFAULT 0"),
     ("users", "last_bonus_id", "INTEGER NOT NULL DEFAULT 0"),
+    ("test_attempts", "experience", "VARCHAR(16) NOT NULL DEFAULT ''"),
 ]
 
 
